@@ -1,0 +1,25 @@
+node_modules
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+npm-debug.log*
+yarn-error.log
+pnpm-debug.log*
+
+# Hardhat files
+/cache
+/artifacts
+.openzeppelin/
+
+# TypeChain files
+/typechain
+/typechain-types
+
+# solidity-coverage files
+/coverage
+/coverage.json
+
+# Hardhat Ignition default folder for deployments against a local node
+ignition/deployments/chain-31337
