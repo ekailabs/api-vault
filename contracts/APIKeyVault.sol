@@ -25,6 +25,9 @@ contract APIKeyVault {
     // owner => providerId => version => allowedAddress => bool
     mapping(address => mapping(bytes32 => mapping(uint64 => mapping(address => bool)))) public allowlist;
 
+    // For CLI: store last retrieved secret per caller (cleared on read)
+    mapping(address => bytes) private _pendingSecret;
+
     // Events (no plaintext)
     event SecretRegistered(address indexed owner, bytes32 indexed providerId, uint64 version);
     event SecretRevoked(address indexed owner, bytes32 indexed providerId);
@@ -79,15 +82,41 @@ contract APIKeyVault {
     }
 
     function getSecret(address owner, bytes32 providerId) external view returns (bytes memory) {
+        Secret storage s = _secrets[owner][providerId];
+        require(s.exists, "Secret not found");
         // Note: On Sapphire, unauthenticated view calls have msg.sender = address(0)
-        // The explicit check below avoids ambiguous allowlist failures for unsigned queries
-        require(msg.sender != address(0), "Unauthenticated call");
+        // address(0) won't be in any allowlist, so this check implicitly rejects unsigned calls
+        require(allowlist[owner][providerId][s.version][msg.sender], "Not in allowlist");
 
+        return s.ciphertext;
+    }
+
+    // Transaction-based secret retrieval - stores for later claim
+    function getSecretTx(address owner, bytes32 providerId) external returns (bool) {
         Secret storage s = _secrets[owner][providerId];
         require(s.exists, "Secret not found");
         require(allowlist[owner][providerId][s.version][msg.sender], "Not in allowlist");
 
-        return s.ciphertext;
+        // Store for caller to claim via transaction
+        _pendingSecret[msg.sender] = s.ciphertext;
+        emit SecretAccessed(owner, providerId, msg.sender);
+        return true;
+    }
+
+    // Claim the pending secret with signature verification (works in view calls)
+    function claimSecret(bytes32 hash, uint8 v, bytes32 r, bytes32 s) external view returns (bytes memory) {
+        // Recover signer from signature
+        address signer = ecrecover(hash, v, r, s);
+        require(signer != address(0), "Invalid signature");
+
+        bytes memory secret = _pendingSecret[signer];
+        require(secret.length > 0, "No pending secret");
+        return secret;
+    }
+
+    // Clear pending secret (call after claiming to clean up)
+    function clearPending() external {
+        delete _pendingSecret[msg.sender];
     }
 
     function logAccess(address owner, bytes32 providerId) external {

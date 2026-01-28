@@ -1,5 +1,4 @@
 import { task } from "hardhat/config";
-import { wrapEthersSigner } from "@oasisprotocol/sapphire-ethers-v6";
 
 task("deploy-vault").setAction(async (_args, hre) => {
   await hre.run("compile");
@@ -76,18 +75,31 @@ task("get-secret")
   .addParam("provider", "Provider name (e.g., OPENAI_API_KEY)")
   .setAction(async (args, hre) => {
     const [signer] = await hre.ethers.getSigners();
-    // Wrap signer for signed queries (authenticated view calls)
-    const wrappedSigner = wrapEthersSigner(signer);
-
-    const abi = (await hre.artifacts.readArtifact("APIKeyVault")).abi;
-    const vault = new hre.ethers.Contract(args.address, abi, wrappedSigner);
+    const vault = await hre.ethers.getContractAt("APIKeyVault", args.address, signer);
     const providerId = hre.ethers.keccak256(hre.ethers.toUtf8Bytes(args.provider));
 
     try {
-      const ciphertext = await vault.getSecret.staticCall(args.owner, providerId);
+      // Step 1: Request access (stores pending secret)
+      console.log("Requesting secret access...");
+      const tx = await vault.getSecretTx(args.owner, providerId);
+      await tx.wait();
+      console.log(`Access granted in tx: ${tx.hash}`);
+
+      // Step 2: Create signature for claim
+      const message = "claim-secret";
+      const hash = hre.ethers.hashMessage(message);
+      const sig = await signer.signMessage(message);
+      const { v, r, s } = hre.ethers.Signature.from(sig);
+
+      // Step 3: Claim secret using signature (view call with signature verification)
+      const ciphertext = await vault.claimSecret(hash, v, r, s);
       const secret = hre.ethers.toUtf8String(ciphertext);
-      // Never print actual secret - only confirm retrieval
-      console.log(`Secret for ${args.provider}: ✓ Retrieved (${secret.length} chars)`);
+
+      // Step 4: Clear pending
+      const clearTx = await vault.clearPending();
+      await clearTx.wait();
+
+      console.log(`✓ Secret for ${args.provider}: ${secret}`);
     } catch (e: any) {
       console.error(`Failed to get secret: ${e.reason || e.message}`);
     }
@@ -125,80 +137,94 @@ task("get-secret-info")
   .addParam("owner", "Owner address")
   .addParam("provider", "Provider name (e.g., OPENAI_API_KEY)")
   .setAction(async (args, hre) => {
-    const [signer] = await hre.ethers.getSigners();
-    // Wrap signer for signed queries (authenticated view calls)
-    const wrappedSigner = wrapEthersSigner(signer);
-
-    const abi = (await hre.artifacts.readArtifact("APIKeyVault")).abi;
-    const vault = new hre.ethers.Contract(args.address, abi, wrappedSigner);
+    const vault = await hre.ethers.getContractAt("APIKeyVault", args.address);
     const providerId = hre.ethers.keccak256(hre.ethers.toUtf8Bytes(args.provider));
 
-    const result = await vault.getSecretInfo.staticCall(args.owner, providerId);
+    // Note: isAllowed will be false for CLI calls (msg.sender = address(0) for unsigned view calls)
+    // This is expected - use get-secret task to actually retrieve secrets via transaction
+    const result = await vault.getSecretInfo(args.owner, providerId);
     console.log(`Secret info for ${args.provider}:`);
-    console.log(`  Version: ${result[0]}`);
-    console.log(`  Exists: ${result[1]}`);
-    console.log(`  Caller is allowed: ${result[2]}`);
+    console.log(`  Version: ${result.version}`);
+    console.log(`  Exists: ${result.exists}`);
+    console.log(`  Caller is allowed: ${result.isAllowed} (always false in CLI - use get-secret task)`);
   });
 
-task("full-vault-demo").setAction(async (_args, hre) => {
-  console.log("=== API Key Vault Demo ===\n");
+// Full demo - for localnet with multiple accounts only
+task("full-vault-demo")
+  .setDescription("End-to-end demo (localnet only - requires multiple signers)")
+  .setAction(async (_args, hre) => {
+    console.log("=== API Key Vault Demo (Localnet) ===\n");
 
-  // Deploy
-  console.log("1. Deploying APIKeyVault...");
-  const address = await hre.run("deploy-vault");
+    const [owner, allowedUser] = await hre.ethers.getSigners();
+    if (!allowedUser) {
+      console.error("Error: This demo requires multiple signers (localnet with mnemonic)");
+      console.log("For testnet, use individual tasks:");
+      console.log("  1. npx hardhat deploy-vault --network sapphire-testnet");
+      console.log("  2. npx hardhat register-secret --address <addr> ...");
+      console.log("  3. npx hardhat add-allowlist --address <addr> ...");
+      console.log("  4. npx hardhat get-secret --address <addr> ...");
+      return;
+    }
 
-  const [owner, allowedUser] = await hre.ethers.getSigners();
-  console.log(`   Owner: ${owner.address}`);
-  console.log(`   Allowed User: ${allowedUser.address}\n`);
+    // Deploy
+    console.log("1. Deploying APIKeyVault...");
+    const address = await hre.run("deploy-vault");
+    console.log(`   Owner: ${owner.address}`);
+    console.log(`   Allowed User: ${allowedUser.address}\n`);
 
-  // Register secret
-  console.log("2. Registering secret...");
-  await hre.run("register-secret", {
-    address,
-    provider: "OPENAI_API_KEY",
-    secret: "sk-test-secret-key-12345",
+    // Register secret
+    console.log("2. Registering secret...");
+    await hre.run("register-secret", {
+      address,
+      provider: "OPENAI_API_KEY",
+      secret: "sk-test-secret-key-12345",
+    });
+
+    // Add to allowlist
+    console.log("\n3. Adding allowed user to allowlist...");
+    await hre.run("add-allowlist", {
+      address,
+      provider: "OPENAI_API_KEY",
+      user: allowedUser.address,
+    });
+
+    // Get secret info
+    console.log("\n4. Getting secret info...");
+    const providerId = hre.ethers.keccak256(hre.ethers.toUtf8Bytes("OPENAI_API_KEY"));
+    const vault = await hre.ethers.getContractAt("APIKeyVault", address, allowedUser);
+
+    const infoResult = await vault.getSecretInfo(owner.address, providerId);
+    console.log(`   Version: ${infoResult.version}`);
+    console.log(`   Exists: ${infoResult.exists}`);
+    console.log(`   Note: isAllowed always false in CLI (unsigned view calls)`);
+
+    // Get secret using signature-based claim
+    console.log("\n5. Getting secret via signature-based claim...");
+    console.log(`   Signer address: ${allowedUser.address}`);
+
+    try {
+      // Step 1: Request access
+      const tx = await vault.getSecretTx(owner.address, providerId);
+      await tx.wait();
+      console.log(`   Access granted in tx: ${tx.hash}`);
+
+      // Step 2: Sign message and claim
+      const message = "claim-secret";
+      const hash = hre.ethers.hashMessage(message);
+      const sig = await allowedUser.signMessage(message);
+      const { v, r, s } = hre.ethers.Signature.from(sig);
+
+      // Step 3: Claim with signature
+      const ciphertext = await vault.claimSecret(hash, v, r, s);
+      const secret = hre.ethers.toUtf8String(ciphertext);
+
+      // Step 4: Clear pending
+      await vault.clearPending();
+
+      console.log(`   ✓ Secret: ${secret}`);
+    } catch (e: any) {
+      console.error(`   Failed: ${e.reason || e.message}`);
+    }
+
+    console.log("\n=== Demo Complete ===");
   });
-
-  // Add to allowlist
-  console.log("\n3. Adding allowed user to allowlist...");
-  await hre.run("add-allowlist", {
-    address,
-    provider: "OPENAI_API_KEY",
-    user: allowedUser.address,
-  });
-
-  // Get secret info (using allowedUser to check their allowlist status)
-  console.log("\n4. Getting secret info as allowedUser...");
-  const providerId = hre.ethers.keccak256(hre.ethers.toUtf8Bytes("OPENAI_API_KEY"));
-
-  // Wrap signer for signed queries (authenticated view calls)
-  const wrappedAllowedUser = wrapEthersSigner(allowedUser);
-  const abi = (await hre.artifacts.readArtifact("APIKeyVault")).abi;
-  const vault = new hre.ethers.Contract(address as string, abi, wrappedAllowedUser);
-
-  const infoResult = await vault.getSecretInfo.staticCall(owner.address, providerId);
-  console.log(`   Version: ${infoResult[0]}`);
-  console.log(`   Exists: ${infoResult[1]}`);
-  console.log(`   Caller is allowed: ${infoResult[2]}`);
-
-  // Get secret using staticCallResult (authenticated view call)
-  console.log("\n5. Getting secret with authenticated view call...");
-  console.log(`   Signer address: ${allowedUser.address}`);
-
-  try {
-    const result = await vault.getSecret.staticCall(owner.address, providerId);
-    const secret = hre.ethers.toUtf8String(result);
-    // Never print actual secret - only confirm retrieval
-    console.log(`   ✓ Secret retrieved successfully (${secret.length} chars)`);
-  } catch (e: any) {
-    console.error(`   Failed: ${e.reason || e.message}`);
-  }
-
-  // Log access (transaction) - wrapped signer works for transactions too
-  console.log("\n6. Logging access...");
-  const tx = await vault.logAccess(owner.address, providerId);
-  await tx.wait();
-  console.log("   Access logged on-chain");
-
-  console.log("\n=== Demo Complete ===");
-});

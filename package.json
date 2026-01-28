@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@oasisprotocol/sapphire-ethers-v6": "^6.0.1",
-    "@oasisprotocol/sapphire-paratime": "^2.3.0"
+    "@oasisprotocol/sapphire-paratime": "^2.3.0",
+    "dotenv": "^17.2.3"
   }
 }
