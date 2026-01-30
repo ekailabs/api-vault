@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Subcall} from "@oasisprotocol/sapphire-contracts/contracts/Subcall.sol";
 
 contract EkaiControlPlane is Ownable2Step {
     // ============ Structs ============
@@ -22,8 +24,10 @@ contract EkaiControlPlane is Ownable2Step {
 
     // Admin
     RoflKey public roflKey;
-    address public gateway;
+    bytes21 public roflAppId;  // ROFL app identifier for Sapphire verification
+    address public gateway;    // Fallback for non-ROFL calls (optional)
     mapping(bytes32 => bool) public validProviders;
+    bool public paused;
 
     // Secrets: owner => providerId => Secret
     mapping(address => mapping(bytes32 => Secret)) private _secrets;
@@ -39,6 +43,7 @@ contract EkaiControlPlane is Ownable2Step {
     // ============ Events ============
 
     event GatewayUpdated(address indexed oldGateway, address indexed newGateway);
+    event RoflAppIdUpdated(bytes21 indexed oldAppId, bytes21 indexed newAppId);
     event RoflKeyUpdated(bytes pubkey, uint64 version, bool active);
     event ProviderAdded(bytes32 indexed providerId);
     event ProviderRemoved(bytes32 indexed providerId);
@@ -48,6 +53,8 @@ contract EkaiControlPlane is Ownable2Step {
     event DelegateRemoved(address indexed owner, address indexed delegate);
     event ModelAllowed(address indexed owner, bytes32 indexed providerId, bytes32 indexed modelId);
     event ModelDisallowed(address indexed owner, bytes32 indexed providerId, bytes32 indexed modelId);
+    event Paused(address indexed by);
+    event Unpaused(address indexed by);
     event ReceiptLogged(
         bytes32 indexed requestHash,
         address indexed owner,
@@ -61,10 +68,44 @@ contract EkaiControlPlane is Ownable2Step {
         uint64 timestamp
     );
 
+    // ============ Errors ============
+
+    error InvalidGateway();
+    error InvalidRoflAppId();
+    error InvalidRoflKey();
+    error RoflKeyNotActive();
+    error InvalidProvider();
+    error InvalidDelegate();
+    error InvalidModel();
+    error ProviderExists();
+    error ProviderNotFound();
+    error SecretNotFound();
+    error DelegateExists();
+    error DelegateNotFound();
+    error ModelExists();
+    error ModelNotFound();
+    error EmptyCiphertext();
+    error ContractPaused();
+    error NotAuthorized();
+
     // ============ Modifiers ============
 
-    modifier onlyGateway() {
-        require(msg.sender == gateway, "Only gateway");
+    modifier onlyRoflOrGateway() {
+        // First try ROFL verification (preferred on Sapphire)
+        if (roflAppId != bytes21(0)) {
+            // This will revert if caller is not the authorized ROFL app
+            Subcall.roflEnsureAuthorizedOrigin(roflAppId);
+        } else if (gateway != address(0)) {
+            // Fallback to address-based check
+            if (msg.sender != gateway) revert NotAuthorized();
+        } else {
+            revert NotAuthorized();
+        }
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (paused) revert ContractPaused();
         _;
     }
 
@@ -75,33 +116,73 @@ contract EkaiControlPlane is Ownable2Step {
     // ============ Admin Functions (onlyOwner) ============
 
     function setGateway(address newGateway) external onlyOwner {
+        if (newGateway == address(0)) revert InvalidGateway();
         address oldGateway = gateway;
         gateway = newGateway;
         emit GatewayUpdated(oldGateway, newGateway);
     }
 
-    function setRoflKey(bytes calldata pubkey, uint64 version, bool active) external onlyOwner {
-        roflKey = RoflKey({pubkey: pubkey, version: version, active: active});
-        emit RoflKeyUpdated(pubkey, version, active);
+    function clearGateway() external onlyOwner {
+        address oldGateway = gateway;
+        gateway = address(0);
+        emit GatewayUpdated(oldGateway, address(0));
+    }
+
+    function setRoflAppId(bytes21 newAppId) external onlyOwner {
+        if (newAppId == bytes21(0)) revert InvalidRoflAppId();
+        bytes21 oldAppId = roflAppId;
+        roflAppId = newAppId;
+        emit RoflAppIdUpdated(oldAppId, newAppId);
+    }
+
+    function clearRoflAppId() external onlyOwner {
+        bytes21 oldAppId = roflAppId;
+        roflAppId = bytes21(0);
+        emit RoflAppIdUpdated(oldAppId, bytes21(0));
+    }
+
+    function setRoflKey(bytes calldata pubkey, bool active) external onlyOwner {
+        if (pubkey.length == 0) revert InvalidRoflKey();
+        roflKey.version++;
+        roflKey.pubkey = pubkey;
+        roflKey.active = active;
+        emit RoflKeyUpdated(pubkey, roflKey.version, active);
+    }
+
+    function setRoflKeyActive(bool active) external onlyOwner {
+        roflKey.active = active;
+        emit RoflKeyUpdated(roflKey.pubkey, roflKey.version, active);
     }
 
     function addProvider(bytes32 providerId) external onlyOwner {
-        require(!validProviders[providerId], "Provider already exists");
+        if (providerId == bytes32(0)) revert InvalidProvider();
+        if (validProviders[providerId]) revert ProviderExists();
         validProviders[providerId] = true;
         emit ProviderAdded(providerId);
     }
 
     function removeProvider(bytes32 providerId) external onlyOwner {
-        require(validProviders[providerId], "Provider not found");
+        if (!validProviders[providerId]) revert ProviderNotFound();
         validProviders[providerId] = false;
         emit ProviderRemoved(providerId);
     }
 
-    // ============ Owner - Secrets ============
+    function pause() external onlyOwner {
+        paused = true;
+        emit Paused(msg.sender);
+    }
 
-    function setSecret(bytes32 providerId, bytes calldata ciphertext) external {
-        require(validProviders[providerId], "Invalid provider");
-        require(ciphertext.length > 0, "Empty ciphertext");
+    function unpause() external onlyOwner {
+        paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    // ============ User - Secrets ============
+
+    function setSecret(bytes32 providerId, bytes calldata ciphertext) external whenNotPaused {
+        if (!validProviders[providerId]) revert InvalidProvider();
+        if (ciphertext.length == 0) revert EmptyCiphertext();
+        if (roflKey.pubkey.length == 0 || !roflKey.active) revert RoflKeyNotActive();
 
         Secret storage s = _secrets[msg.sender][providerId];
 
@@ -114,7 +195,7 @@ contract EkaiControlPlane is Ownable2Step {
 
     function revokeSecret(bytes32 providerId) external {
         Secret storage s = _secrets[msg.sender][providerId];
-        require(s.exists, "Secret not found");
+        if (!s.exists) revert SecretNotFound();
 
         s.version++;
         s.exists = false;
@@ -123,11 +204,11 @@ contract EkaiControlPlane is Ownable2Step {
         emit SecretRevoked(msg.sender, providerId, s.version);
     }
 
-    // ============ Owner - Delegates ============
+    // ============ User - Delegates ============
 
-    function addDelegate(address delegate) external {
-        require(delegate != address(0), "Invalid delegate");
-        require(!delegateAllowed[msg.sender][delegate], "Delegate already added");
+    function addDelegate(address delegate) external whenNotPaused {
+        if (delegate == address(0)) revert InvalidDelegate();
+        if (delegateAllowed[msg.sender][delegate]) revert DelegateExists();
 
         delegateAllowed[msg.sender][delegate] = true;
         delegateCount[msg.sender]++;
@@ -136,7 +217,7 @@ contract EkaiControlPlane is Ownable2Step {
     }
 
     function removeDelegate(address delegate) external {
-        require(delegateAllowed[msg.sender][delegate], "Delegate not found");
+        if (!delegateAllowed[msg.sender][delegate]) revert DelegateNotFound();
 
         delegateAllowed[msg.sender][delegate] = false;
         delegateCount[msg.sender]--;
@@ -144,11 +225,12 @@ contract EkaiControlPlane is Ownable2Step {
         emit DelegateRemoved(msg.sender, delegate);
     }
 
-    // ============ Owner - Models ============
+    // ============ User - Models ============
 
-    function addAllowedModel(bytes32 providerId, bytes32 modelId) external {
-        require(validProviders[providerId], "Invalid provider");
-        require(!modelAllowed[msg.sender][providerId][modelId], "Model already allowed");
+    function addAllowedModel(bytes32 providerId, bytes32 modelId) external whenNotPaused {
+        if (!validProviders[providerId]) revert InvalidProvider();
+        if (modelId == bytes32(0)) revert InvalidModel();
+        if (modelAllowed[msg.sender][providerId][modelId]) revert ModelExists();
 
         modelAllowed[msg.sender][providerId][modelId] = true;
         modelCount[msg.sender][providerId]++;
@@ -157,7 +239,8 @@ contract EkaiControlPlane is Ownable2Step {
     }
 
     function removeAllowedModel(bytes32 providerId, bytes32 modelId) external {
-        require(modelAllowed[msg.sender][providerId][modelId], "Model not allowed");
+        if (!validProviders[providerId]) revert InvalidProvider();
+        if (!modelAllowed[msg.sender][providerId][modelId]) revert ModelNotFound();
 
         modelAllowed[msg.sender][providerId][modelId] = false;
         modelCount[msg.sender][providerId]--;
@@ -171,12 +254,9 @@ contract EkaiControlPlane is Ownable2Step {
         address owner,
         bytes32 providerId
     ) external view returns (bytes memory ciphertext, uint64 secretVersion, bool exists, uint64 roflKeyVersion) {
-        // Access control: only owner or gateway can read
-        require(
-            msg.sender == owner || msg.sender == gateway,
-            "Not authorized"
-        );
-
+        // No access control needed: ciphertext is encrypted to ROFL key,
+        // only decryptable inside the enclave. Gateway enforces permissions
+        // via isDelegatePermitted() and isModelPermitted() before use.
         Secret storage s = _secrets[owner][providerId];
         return (s.ciphertext, s.version, s.exists, roflKey.version);
     }
@@ -212,10 +292,11 @@ contract EkaiControlPlane is Ownable2Step {
         bytes32 providerId,
         bytes32 modelId,
         uint32 promptTokens,
-        uint32 completionTokens,
-        uint64 usedRoflKeyVersion,
-        uint64 usedSecretVersion
-    ) external onlyGateway {
+        uint32 completionTokens
+    ) external onlyRoflOrGateway {
+        // Read versions from storage to ensure accuracy
+        Secret storage s = _secrets[owner][providerId];
+
         emit ReceiptLogged(
             requestHash,
             owner,
@@ -224,8 +305,8 @@ contract EkaiControlPlane is Ownable2Step {
             modelId,
             promptTokens,
             completionTokens,
-            usedRoflKeyVersion,
-            usedSecretVersion,
+            roflKey.version,
+            s.version,
             uint64(block.timestamp)
         );
     }
@@ -238,5 +319,13 @@ contract EkaiControlPlane is Ownable2Step {
 
     function getRoflKey() external view returns (bytes memory pubkey, uint64 version, bool active) {
         return (roflKey.pubkey, roflKey.version, roflKey.active);
+    }
+
+    function getRoflAppId() external view returns (bytes21) {
+        return roflAppId;
+    }
+
+    function isPaused() external view returns (bool) {
+        return paused;
     }
 }

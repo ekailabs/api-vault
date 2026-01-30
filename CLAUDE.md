@@ -1,119 +1,120 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working with this repository.
 
-## Project Overview
+## What Is This?
 
-EkaiControlPlane - a confidential control plane for ROFL apps on Oasis Sapphire. Secrets are encrypted to a ROFL key (decrypted only in the enclave), with shared delegate allowlists and optional per-provider model restrictions.
+Ekai Control Plane - share your AI API keys with anyone without revealing them. Keys are encrypted on-chain and only decrypted inside a secure enclave (TEE). No one ever sees your keys - not delegates, not node operators, not even us.
 
-## Deployed Contracts
+Works with the [Ekai Gateway](https://github.com/ekailabs/ekai-gateway) which runs in the enclave and makes API calls on behalf of authorized users.
+
+## Deployed Contract
 
 | Network | Address | Owner |
 |---------|---------|-------|
-| Sapphire Testnet | `0xacE4763F5E5FeDB7770e48bB123CD479913Eb6C5` | `0x4Ec6E3b99E2E4422d6e64313F5AA2A8470DCDa2b` |
+| Sapphire Testnet | `0x1647A17be7Ad7A01C6657aC05FA10349E7f32268` | `0x4Ec6E3b99E2E4422d6e64313F5AA2A8470DCDa2b` |
 
 ## Commands
 
 ```bash
-# Install dependencies
 npm install
-
-# Compile contracts
 npx hardhat compile
-
-# Run tests
 npx hardhat test
 
-# Deploy EkaiControlPlane
+# Deploy
 npx hardhat deploy-ekai --network sapphire-testnet
 
-# Add a provider (admin only)
-npx hardhat ekai-add-provider --address <contract> --provider OPENAI --network sapphire-testnet
+# Setup (adds all providers)
+npx hardhat ekai-setup --address <contract> --network sapphire-testnet
 
-# Set a secret
-npx hardhat ekai-set-secret --address <contract> --provider OPENAI --secret "sk-..." --network sapphire-testnet
+# Store a secret
+npx hardhat ekai-set-secret --address <contract> --provider ANTHROPIC --secret "sk-ant-..." --network sapphire-testnet
 
-# Add a delegate
-npx hardhat ekai-add-delegate --address <contract> --delegate <address> --network sapphire-testnet
-
-# Add model restriction
-npx hardhat ekai-add-model --address <contract> --provider OPENAI --model gpt-4 --network sapphire-testnet
-
-# Check permissions
-npx hardhat ekai-check-delegate --address <contract> --owner <owner> --delegate <delegate> --network sapphire-testnet
-npx hardhat ekai-check-model --address <contract> --owner <owner> --provider OPENAI --model gpt-4 --network sapphire-testnet
-
-# Get contract info
-npx hardhat ekai-info --address <contract> --network sapphire-testnet
-
-# Full demo (localnet)
-npx hardhat ekai-demo --network sapphire-localnet
-
-# Run local Sapphire node
-docker run -it -p8544-8548:8544-8548 ghcr.io/oasisprotocol/sapphire-localnet
-
-# Serve frontend for browser testing
-npx http-server . -p 8080 --cors
-# Then open: http://localhost:8080/frontend/ekai.html
+# Share with someone
+npx hardhat ekai-add-delegate --address <contract> --delegate 0x... --network sapphire-testnet
 ```
 
 ## Networks
 
-- `sapphire` - Mainnet (chainId: 0x5afe)
-- `sapphire-testnet` - Testnet (chainId: 0x5aff)
-- `sapphire-localnet` - Local dev at localhost:8545 (chainId: 0x5afd)
+| Network | Chain ID | Env |
+|---------|----------|-----|
+| `sapphire` | 0x5afe | Mainnet |
+| `sapphire-testnet` | 0x5aff | Testnet |
+| `sapphire-localnet` | 0x5afd | Local (localhost:8545) |
 
-Set `PRIVATE_KEY` env var for deployment; defaults to test mnemonic.
+Set `PRIVATE_KEY` env var for transactions.
 
-## Architecture
+## Contract API
 
-**EkaiControlPlane Contract** (`contracts/EkaiControlPlane.sol`):
+### Owner Functions
 
-### Access Control
-- **Admin (Ownable2Step)**: setGateway, setRoflKey, addProvider, removeProvider
-- **Users**: Manage their own secrets, delegates, and model restrictions
-- **Gateway**: Log receipts (audit trail)
+| Function | Description |
+|----------|-------------|
+| `setGateway(address)` | Set trusted gateway for non-ROFL auth |
+| `clearGateway()` | Remove gateway |
+| `setRoflAppId(bytes21)` | Set ROFL app ID for native Sapphire auth |
+| `clearRoflAppId()` | Remove ROFL app ID |
+| `setRoflKey(bytes, bool)` | Set encryption public key (version auto-increments) |
+| `setRoflKeyActive(bool)` | Toggle key active state |
+| `addProvider(bytes32)` | Add provider (OPENAI, ANTHROPIC, etc.) |
+| `removeProvider(bytes32)` | Remove provider |
+| `pause()` | Emergency stop (blocks adds, allows revokes) |
+| `unpause()` | Resume normal operation |
 
-### Key Concepts
+### User Functions
 
-**Providers**: Admin-managed registry of valid provider IDs (e.g., OPENAI, ANTHROPIC). Users can only store secrets for valid providers.
+| Function | Description |
+|----------|-------------|
+| `setSecret(bytes32 providerId, bytes ciphertext)` | Store encrypted API key |
+| `revokeSecret(bytes32 providerId)` | Delete your secret |
+| `addDelegate(address)` | Let someone use your keys |
+| `removeDelegate(address)` | Revoke access |
+| `addAllowedModel(bytes32 providerId, bytes32 modelId)` | Restrict to specific model |
+| `removeAllowedModel(bytes32 providerId, bytes32 modelId)` | Remove restriction |
 
-**Secrets**: Per-user, per-provider encrypted data. Version increments on each set/revoke.
+### View Functions
 
-**Delegates**: Shared across ALL of an owner's secrets. If delegateCount == 0, only owner has access. Self-access (owner == delegate) always permitted.
+| Function | Description |
+|----------|-------------|
+| `getSecretCiphertext(address, bytes32)` | Get encrypted secret (anyone can call - ciphertext is useless without enclave) |
+| `isDelegatePermitted(address owner, address delegate)` | Check if delegate allowed |
+| `isModelPermitted(address owner, bytes32 providerId, bytes32 modelId)` | Check if model allowed |
+| `getRoflKey()` | Get public key, version, active status |
 
-**Models**: Per-provider restrictions. If modelCount == 0, ALL models allowed. Otherwise, only whitelisted models permitted.
+### Gateway Functions
 
-### Key Functions
+| Function | Description |
+|----------|-------------|
+| `logReceipt(...)` | Log API usage (versions read from storage, can't be spoofed) |
 
-| Function | Access | Description |
-|----------|--------|-------------|
-| `setGateway(address)` | Owner | Set trusted ROFL gateway |
-| `setRoflKey(bytes, uint64, bool)` | Owner | Set/rotate ROFL encryption key |
-| `addProvider(bytes32)` | Owner | Add valid provider to registry |
-| `setSecret(bytes32, bytes)` | Any | Store secret for a provider |
-| `revokeSecret(bytes32)` | Any | Delete own secret |
-| `addDelegate(address)` | Any | Grant delegate access to all secrets |
-| `removeDelegate(address)` | Any | Revoke delegate access |
-| `addAllowedModel(bytes32, bytes32)` | Any | Restrict provider to specific model |
-| `removeAllowedModel(bytes32, bytes32)` | Any | Remove model restriction |
-| `getSecretCiphertext(address, bytes32)` | Owner/Gateway | Get encrypted secret + metadata |
-| `isDelegatePermitted(address, address)` | View | Check delegate permission |
-| `isModelPermitted(address, bytes32, bytes32)` | View | Check model permission |
-| `logReceipt(...)` | Gateway | Emit audit event |
+## Key Concepts
 
-### Typical ROFL Gateway Flow
+**Providers**: OPENAI, ANTHROPIC, GOOGLE, XAI, OPENROUTER, GROQ. Admin-managed registry.
 
-1. `getSecretCiphertext(owner, providerId)` → get ciphertext + versions
-2. `isDelegatePermitted(owner, delegate)` → verify delegate access
-3. `isModelPermitted(owner, providerId, modelId)` → verify model allowed
-4. Decrypt ciphertext in enclave, make API call
-5. `logReceipt(...)` → emit audit event
+**Secrets**: Your encrypted API keys. One per provider. Version increments on change.
+
+**Delegates**: People who can use your keys. Shared across all your secrets. Remove anytime.
+
+**Models**: Optional per-provider restrictions. Empty = allow all models.
+
+**ROFL Key**: Gateway's public encryption key. Must be active before users can store secrets.
+
+## Security Model
+
+Why no access control on `getSecretCiphertext()`?
+
+On Sapphire, unsigned view calls have `msg.sender = address(0)`. Access control would break the gateway. The ciphertext is encrypted to the gateway's key - useless to anyone else.
+
+The gateway checks `isDelegatePermitted()` and `isModelPermitted()` before decrypting.
+
+See [SECURITY.md](SECURITY.md) for full details.
 
 ## Solidity
 
-Version 0.8.24 with Paris EVM. The `@oasisprotocol/sapphire-hardhat` plugin automatically wraps providers with Sapphire's encryption layer.
+- Version: 0.8.24, Paris EVM
+- OpenZeppelin: `Ownable2Step`
+- Oasis: `@oasisprotocol/sapphire-contracts` for ROFL verification
 
-## Frontend
+## Config
 
-Browser-based test UI at `frontend/ekai.html`. Uses `@oasisprotocol/sapphire-paratime` for encrypted transactions.
+Contract addresses in `config.json`. Frontend loads from there.

@@ -31,16 +31,31 @@ describe("EkaiControlPlane", function () {
       expect(await ekai.gateway()).to.equal(gateway.address);
     });
 
+    it("rejects zero address gateway", async function () {
+      const { ekai } = await loadFixture(deployFixture);
+      await expect(ekai.setGateway(ethers.ZeroAddress))
+        .to.be.revertedWithCustomError(ekai, "InvalidGateway");
+    });
+
+    it("allows owner to clear gateway", async function () {
+      const { ekai, gateway } = await loadFixture(deployFixture);
+      await ekai.setGateway(gateway.address);
+      await expect(ekai.clearGateway())
+        .to.emit(ekai, "GatewayUpdated")
+        .withArgs(gateway.address, ethers.ZeroAddress);
+      expect(await ekai.gateway()).to.equal(ethers.ZeroAddress);
+    });
+
     it("rejects non-owner setting gateway", async function () {
       const { ekai, other, gateway } = await loadFixture(deployFixture);
       await expect(ekai.connect(other).setGateway(gateway.address))
         .to.be.revertedWithCustomError(ekai, "OwnableUnauthorizedAccount");
     });
 
-    it("allows owner to set ROFL key", async function () {
+    it("allows owner to set ROFL key with auto-increment version", async function () {
       const { ekai } = await loadFixture(deployFixture);
       const pubkey = ethers.toUtf8Bytes("test-pubkey");
-      await expect(ekai.setRoflKey(pubkey, 1, true))
+      await expect(ekai.setRoflKey(pubkey, true))
         .to.emit(ekai, "RoflKeyUpdated")
         .withArgs(ethers.hexlify(pubkey), 1, true);
 
@@ -48,6 +63,45 @@ describe("EkaiControlPlane", function () {
       expect(storedPubkey).to.equal(ethers.hexlify(pubkey));
       expect(version).to.equal(1);
       expect(active).to.equal(true);
+
+      // Second call should increment version
+      const pubkey2 = ethers.toUtf8Bytes("test-pubkey-2");
+      await ekai.setRoflKey(pubkey2, true);
+      const [, version2] = await ekai.getRoflKey();
+      expect(version2).to.equal(2);
+    });
+
+    it("rejects empty ROFL key", async function () {
+      const { ekai } = await loadFixture(deployFixture);
+      await expect(ekai.setRoflKey("0x", true))
+        .to.be.revertedWithCustomError(ekai, "InvalidRoflKey");
+    });
+
+    it("allows owner to toggle ROFL key active state", async function () {
+      const { ekai } = await loadFixture(deployFixture);
+      const pubkey = ethers.toUtf8Bytes("test-pubkey");
+      await ekai.setRoflKey(pubkey, true);
+
+      await ekai.setRoflKeyActive(false);
+      const [, , active] = await ekai.getRoflKey();
+      expect(active).to.equal(false);
+    });
+
+    it("allows owner to set and clear ROFL app ID", async function () {
+      const { ekai } = await loadFixture(deployFixture);
+      const appId = "0x0000000000000000000000000000000000000001" + "00";
+      await expect(ekai.setRoflAppId(appId))
+        .to.emit(ekai, "RoflAppIdUpdated");
+      expect(await ekai.getRoflAppId()).to.equal(appId);
+
+      await ekai.clearRoflAppId();
+      expect(await ekai.getRoflAppId()).to.equal("0x" + "00".repeat(21));
+    });
+
+    it("rejects zero ROFL app ID", async function () {
+      const { ekai } = await loadFixture(deployFixture);
+      await expect(ekai.setRoflAppId("0x" + "00".repeat(21)))
+        .to.be.revertedWithCustomError(ekai, "InvalidRoflAppId");
     });
 
     it("allows owner to add and remove providers", async function () {
@@ -61,7 +115,7 @@ describe("EkaiControlPlane", function () {
       expect(await ekai.isValidProvider(OPENAI)).to.equal(true);
 
       await expect(ekai.addProvider(OPENAI))
-        .to.be.revertedWith("Provider already exists");
+        .to.be.revertedWithCustomError(ekai, "ProviderExists");
 
       await expect(ekai.removeProvider(OPENAI))
         .to.emit(ekai, "ProviderRemoved")
@@ -69,7 +123,13 @@ describe("EkaiControlPlane", function () {
       expect(await ekai.isValidProvider(OPENAI)).to.equal(false);
 
       await expect(ekai.removeProvider(OPENAI))
-        .to.be.revertedWith("Provider not found");
+        .to.be.revertedWithCustomError(ekai, "ProviderNotFound");
+    });
+
+    it("rejects zero bytes32 provider ID", async function () {
+      const { ekai } = await loadFixture(deployFixture);
+      await expect(ekai.addProvider(ethers.ZeroHash))
+        .to.be.revertedWithCustomError(ekai, "InvalidProvider");
     });
 
     it("supports two-step ownership transfer", async function () {
@@ -84,11 +144,67 @@ describe("EkaiControlPlane", function () {
     });
   });
 
+  describe("Pause functionality", function () {
+    it("allows owner to pause and unpause", async function () {
+      const { ekai, owner } = await loadFixture(deployFixture);
+
+      await expect(ekai.pause())
+        .to.emit(ekai, "Paused")
+        .withArgs(owner.address);
+      expect(await ekai.isPaused()).to.equal(true);
+
+      await expect(ekai.unpause())
+        .to.emit(ekai, "Unpaused")
+        .withArgs(owner.address);
+      expect(await ekai.isPaused()).to.equal(false);
+    });
+
+    it("blocks setSecret when paused", async function () {
+      const { ekai, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+      await ekai.pause();
+
+      await expect(ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret")))
+        .to.be.revertedWithCustomError(ekai, "ContractPaused");
+    });
+
+    it("blocks addDelegate when paused", async function () {
+      const { ekai, delegate } = await loadFixture(deployFixture);
+      await ekai.pause();
+
+      await expect(ekai.addDelegate(delegate.address))
+        .to.be.revertedWithCustomError(ekai, "ContractPaused");
+    });
+
+    it("blocks addAllowedModel when paused", async function () {
+      const { ekai, OPENAI, GPT4 } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+      await ekai.pause();
+
+      await expect(ekai.addAllowedModel(OPENAI, GPT4))
+        .to.be.revertedWithCustomError(ekai, "ContractPaused");
+    });
+
+    it("allows revoke operations when paused", async function () {
+      const { ekai, owner, delegate, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
+      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
+      await ekai.addDelegate(delegate.address);
+
+      await ekai.pause();
+
+      // Revoke operations should still work when paused
+      await expect(ekai.revokeSecret(OPENAI)).to.emit(ekai, "SecretRevoked");
+      await expect(ekai.removeDelegate(delegate.address)).to.emit(ekai, "DelegateRemoved");
+    });
+  });
+
   describe("Secrets", function () {
-    it("allows owner to set secret for valid provider", async function () {
+    it("allows user to set secret for valid provider", async function () {
       const { ekai, owner, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
 
       const ciphertext = ethers.toUtf8Bytes("encrypted-api-key");
       await expect(ekai.setSecret(OPENAI, ciphertext))
@@ -105,21 +221,36 @@ describe("EkaiControlPlane", function () {
       const { ekai, OPENAI } = await loadFixture(deployFixture);
 
       await expect(ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret")))
-        .to.be.revertedWith("Invalid provider");
+        .to.be.revertedWithCustomError(ekai, "InvalidProvider");
     });
 
     it("rejects empty ciphertext", async function () {
       const { ekai, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
 
       await expect(ekai.setSecret(OPENAI, "0x"))
-        .to.be.revertedWith("Empty ciphertext");
+        .to.be.revertedWithCustomError(ekai, "EmptyCiphertext");
+    });
+
+    it("rejects setting secret when ROFL key not active", async function () {
+      const { ekai, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+
+      // No ROFL key set
+      await expect(ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret")))
+        .to.be.revertedWithCustomError(ekai, "RoflKeyNotActive");
+
+      // ROFL key set but not active
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), false);
+      await expect(ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret")))
+        .to.be.revertedWithCustomError(ekai, "RoflKeyNotActive");
     });
 
     it("increments version on re-set", async function () {
       const { ekai, owner, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
 
       await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("v1"));
       await expect(ekai.setSecret(OPENAI, ethers.toUtf8Bytes("v2")))
@@ -130,10 +261,10 @@ describe("EkaiControlPlane", function () {
       expect(version).to.equal(2);
     });
 
-    it("allows owner to revoke secret", async function () {
+    it("allows user to revoke secret", async function () {
       const { ekai, owner, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
       await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
 
       await expect(ekai.revokeSecret(OPENAI))
@@ -150,7 +281,7 @@ describe("EkaiControlPlane", function () {
       const { ekai, OPENAI } = await loadFixture(deployFixture);
 
       await expect(ekai.revokeSecret(OPENAI))
-        .to.be.revertedWith("Secret not found");
+        .to.be.revertedWithCustomError(ekai, "SecretNotFound");
     });
   });
 
@@ -176,20 +307,20 @@ describe("EkaiControlPlane", function () {
     it("rejects adding zero address delegate", async function () {
       const { ekai } = await loadFixture(deployFixture);
       await expect(ekai.addDelegate(ethers.ZeroAddress))
-        .to.be.revertedWith("Invalid delegate");
+        .to.be.revertedWithCustomError(ekai, "InvalidDelegate");
     });
 
     it("rejects adding duplicate delegate", async function () {
       const { ekai, delegate } = await loadFixture(deployFixture);
       await ekai.addDelegate(delegate.address);
       await expect(ekai.addDelegate(delegate.address))
-        .to.be.revertedWith("Delegate already added");
+        .to.be.revertedWithCustomError(ekai, "DelegateExists");
     });
 
     it("rejects removing non-existent delegate", async function () {
       const { ekai, delegate } = await loadFixture(deployFixture);
       await expect(ekai.removeDelegate(delegate.address))
-        .to.be.revertedWith("Delegate not found");
+        .to.be.revertedWithCustomError(ekai, "DelegateNotFound");
     });
 
     describe("isDelegatePermitted", function () {
@@ -219,7 +350,15 @@ describe("EkaiControlPlane", function () {
       const { ekai, OPENAI, GPT4 } = await loadFixture(deployFixture);
 
       await expect(ekai.addAllowedModel(OPENAI, GPT4))
-        .to.be.revertedWith("Invalid provider");
+        .to.be.revertedWithCustomError(ekai, "InvalidProvider");
+    });
+
+    it("rejects adding zero bytes32 model ID", async function () {
+      const { ekai, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+
+      await expect(ekai.addAllowedModel(OPENAI, ethers.ZeroHash))
+        .to.be.revertedWithCustomError(ekai, "InvalidModel");
     });
 
     it("allows adding and removing models", async function () {
@@ -246,14 +385,14 @@ describe("EkaiControlPlane", function () {
       await ekai.addProvider(OPENAI);
       await ekai.addAllowedModel(OPENAI, GPT4);
       await expect(ekai.addAllowedModel(OPENAI, GPT4))
-        .to.be.revertedWith("Model already allowed");
+        .to.be.revertedWithCustomError(ekai, "ModelExists");
     });
 
     it("rejects removing non-allowed model", async function () {
       const { ekai, OPENAI, GPT4 } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
       await expect(ekai.removeAllowedModel(OPENAI, GPT4))
-        .to.be.revertedWith("Model not allowed");
+        .to.be.revertedWithCustomError(ekai, "ModelNotFound");
     });
 
     describe("isModelPermitted", function () {
@@ -275,12 +414,16 @@ describe("EkaiControlPlane", function () {
   });
 
   describe("Gateway - logReceipt", function () {
-    it("allows gateway to log receipt", async function () {
+    it("allows gateway to log receipt with versions from storage", async function () {
       const { ekai, owner, gateway, delegate, OPENAI, GPT4 } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
       await ekai.setGateway(gateway.address);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
+      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
 
       const requestHash = ethers.keccak256(ethers.toUtf8Bytes("request-1"));
 
+      // logReceipt reads versions from storage
       await expect(ekai.connect(gateway).logReceipt(
         requestHash,
         owner.address,
@@ -288,10 +431,20 @@ describe("EkaiControlPlane", function () {
         OPENAI,
         GPT4,
         100,
-        50,
-        1,
-        0
-      )).to.emit(ekai, "ReceiptLogged");
+        50
+      )).to.emit(ekai, "ReceiptLogged")
+        .withArgs(
+          requestHash,
+          owner.address,
+          delegate.address,
+          OPENAI,
+          GPT4,
+          100,
+          50,
+          1,  // roflKey.version (auto-set by setRoflKey)
+          1,  // secret.version (auto-set by setSecret)
+          (value: bigint) => value > 0  // timestamp
+        );
     });
 
     it("rejects non-gateway calling logReceipt", async function () {
@@ -305,75 +458,22 @@ describe("EkaiControlPlane", function () {
         OPENAI,
         GPT4,
         100,
-        50,
-        1,
-        0
-      )).to.be.revertedWith("Only gateway");
-    });
-  });
-
-  describe("getSecretCiphertext access control", function () {
-    it("rejects random address reading secrets", async function () {
-      const { ekai, owner, other, OPENAI } = await loadFixture(deployFixture);
-      await ekai.addProvider(OPENAI);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
-      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
-
-      await expect(ekai.connect(other).getSecretCiphertext(owner.address, OPENAI))
-        .to.be.revertedWith("Not authorized");
-    });
-
-    it("allows owner to read their own secrets", async function () {
-      const { ekai, owner, OPENAI } = await loadFixture(deployFixture);
-      await ekai.addProvider(OPENAI);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
-      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
-
-      const [ciphertext, version, exists] = await ekai.getSecretCiphertext(owner.address, OPENAI);
-      expect(exists).to.equal(true);
-      expect(version).to.equal(1);
-    });
-
-    it("allows gateway to read any owner's secrets", async function () {
-      const { ekai, owner, gateway, OPENAI } = await loadFixture(deployFixture);
-      await ekai.addProvider(OPENAI);
-      await ekai.setGateway(gateway.address);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
-      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
-
-      const [ciphertext, version, exists] = await ekai.connect(gateway).getSecretCiphertext(owner.address, OPENAI);
-      expect(exists).to.equal(true);
-      expect(version).to.equal(1);
-    });
-
-    it("rejects delegate reading secrets directly", async function () {
-      const { ekai, owner, delegate, OPENAI } = await loadFixture(deployFixture);
-      await ekai.addProvider(OPENAI);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
-      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
-      await ekai.addDelegate(delegate.address);
-
-      // Delegate is permitted but still cannot read directly
-      expect(await ekai.isDelegatePermitted(owner.address, delegate.address)).to.equal(true);
-      await expect(ekai.connect(delegate).getSecretCiphertext(owner.address, OPENAI))
-        .to.be.revertedWith("Not authorized");
+        50
+      )).to.be.revertedWithCustomError(ekai, "NotAuthorized");
     });
   });
 
   describe("Secret isolation", function () {
     it("secrets are isolated per owner", async function () {
-      const { ekai, owner, gateway, other, OPENAI } = await loadFixture(deployFixture);
+      const { ekai, owner, other, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
-      await ekai.setGateway(gateway.address);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
 
       await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("owner-secret"));
       await ekai.connect(other).setSecret(OPENAI, ethers.toUtf8Bytes("other-secret"));
 
-      // Owner reads their own secret
       const [ownerCiphertext, , ownerExists, ] = await ekai.getSecretCiphertext(owner.address, OPENAI);
-      // Other reads their own secret
-      const [otherCiphertext, , otherExists, ] = await ekai.connect(other).getSecretCiphertext(other.address, OPENAI);
+      const [otherCiphertext, , otherExists, ] = await ekai.getSecretCiphertext(other.address, OPENAI);
 
       expect(ethers.toUtf8String(ownerCiphertext)).to.equal("owner-secret");
       expect(ethers.toUtf8String(otherCiphertext)).to.equal("other-secret");
@@ -382,20 +482,17 @@ describe("EkaiControlPlane", function () {
     });
 
     it("revoking one owner's secret doesn't affect another", async function () {
-      const { ekai, owner, gateway, other, OPENAI } = await loadFixture(deployFixture);
+      const { ekai, owner, other, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
-      await ekai.setGateway(gateway.address);
-      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), true);
 
       await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("owner-secret"));
       await ekai.connect(other).setSecret(OPENAI, ethers.toUtf8Bytes("other-secret"));
 
       await ekai.revokeSecret(OPENAI);
 
-      // Owner reads their own secret
       const [, , ownerExists, ] = await ekai.getSecretCiphertext(owner.address, OPENAI);
-      // Other reads their own secret
-      const [, , otherExists, ] = await ekai.connect(other).getSecretCiphertext(other.address, OPENAI);
+      const [, , otherExists, ] = await ekai.getSecretCiphertext(other.address, OPENAI);
 
       expect(ownerExists).to.equal(false);
       expect(otherExists).to.equal(true);
