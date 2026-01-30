@@ -1,48 +1,91 @@
-# Oasis Sapphire API Key Vault
+# EkaiControlPlane
 
-A secure, policy-driven vault for managing encrypted API keys on Oasis Sapphire with per-provider allowlists and versioned revocation. Secrets are stored encrypted; only allowlisted addresses for the current version can fetch them via authenticated Sapphire view calls.
+A confidential control plane for ROFL apps on Oasis Sapphire. Secrets are encrypted to a ROFL key (decrypted only in the enclave), with shared delegate allowlists and optional per-provider model restrictions.
+
+## Deployed Contracts
+
+| Network | Address |
+|---------|---------|
+| Sapphire Testnet | `0x8C9ab7C940d39e535F0d06E23bcF627f482e61b0` |
 
 ## Quickstart
 
 ```bash
 npm install
 npx hardhat compile
+npx hardhat test
 ```
 
-Deploy to Sapphire testnet (uses `PRIVATE_KEY` or the test mnemonic):
+Deploy to Sapphire testnet:
 
 ```bash
-npx hardhat deploy-vault --network sapphire-testnet
-```
-
-Run the scripted demo (deploy, register, allowlist, info, audit log):
-
-```bash
-npx hardhat full-vault-demo --network sapphire-localnet
+export PRIVATE_KEY="your-private-key"
+npx hardhat deploy-ekai --network sapphire-testnet
 ```
 
 ## Hardhat Tasks
 
-- `deploy-vault` — deploy the `APIKeyVault` contract
-- `register-secret --address <addr> --provider OPENAI_API_KEY --secret "sk-..."`
-- `add-allowlist --address <addr> --provider OPENAI_API_KEY --user <wallet>`
-- `remove-allowlist --address <addr> --provider OPENAI_API_KEY --user <wallet>`
-- `get-secret --address <addr> --owner <owner> --provider OPENAI_API_KEY`
-- `log-access --address <addr> --owner <owner> --provider OPENAI_API_KEY`
-- `revoke-secret --address <addr> --provider OPENAI_API_KEY`
-- `get-secret-info --address <addr> --owner <owner> --provider OPENAI_API_KEY`
-- `full-vault-demo` — end-to-end walkthrough
+```bash
+# Deploy
+npx hardhat deploy-ekai --network sapphire-testnet
 
-Provider IDs are fixed: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `GOOGLE_API_KEY`.
+# Admin (owner only)
+npx hardhat ekai-add-provider --address <addr> --provider OPENAI --network sapphire-testnet
+npx hardhat ekai-remove-provider --address <addr> --provider OPENAI --network sapphire-testnet
+npx hardhat ekai-set-gateway --address <addr> --gateway <addr> --network sapphire-testnet
+npx hardhat ekai-set-rofl-key --address <addr> --pubkey 0x... --keyversion 1 --network sapphire-testnet
 
-## Sapphire Authentication Note
+# Secrets
+npx hardhat ekai-set-secret --address <addr> --provider OPENAI --secret "sk-..." --network sapphire-testnet
+npx hardhat ekai-revoke-secret --address <addr> --provider OPENAI --network sapphire-testnet
+npx hardhat ekai-get-secret-info --address <addr> --owner <addr> --provider OPENAI --network sapphire-testnet
 
-`getSecret` is an authenticated view. On Sapphire, unsigned view calls set `msg.sender = address(0)` and will revert as unauthenticated. Use signed queries (e.g., `sapphire.wrap` with MetaMask/SIWE) when reading secrets; normal transactions (e.g., `logAccess`) do not require this.
+# Delegates
+npx hardhat ekai-add-delegate --address <addr> --delegate <addr> --network sapphire-testnet
+npx hardhat ekai-remove-delegate --address <addr> --delegate <addr> --network sapphire-testnet
+npx hardhat ekai-check-delegate --address <addr> --owner <addr> --delegate <addr> --network sapphire-testnet
+
+# Models
+npx hardhat ekai-add-model --address <addr> --provider OPENAI --model gpt-4 --network sapphire-testnet
+npx hardhat ekai-remove-model --address <addr> --provider OPENAI --model gpt-4 --network sapphire-testnet
+npx hardhat ekai-check-model --address <addr> --owner <addr> --provider OPENAI --model gpt-4 --network sapphire-testnet
+
+# Info
+npx hardhat ekai-info --address <addr> --network sapphire-testnet
+
+# Demo (localnet)
+npx hardhat ekai-demo --network sapphire-localnet
+```
+
+## Browser Testing
+
+```bash
+# Serve frontend
+npx http-server . -p 8080 --cors
+
+# Open http://localhost:8080/frontend/ekai.html
+```
+
+## Key Concepts
+
+- **Providers**: Admin-managed registry (OPENAI, ANTHROPIC, etc.)
+- **Secrets**: Per-user, per-provider encrypted data
+- **Delegates**: Shared access to ALL owner's secrets (delegateCount=0 means only owner)
+- **Models**: Per-provider restrictions (modelCount=0 means all allowed)
 
 ## Networks
 
-- `sapphire` (mainnet): `https://sapphire.oasis.io`, chainId `0x5afe`
-- `sapphire-testnet`: `https://testnet.sapphire.oasis.io`, chainId `0x5aff`
-- `sapphire-localnet`: `http://localhost:8545`, chainId `0x5afd` (see `docker run -it -p8544-8548:8544-8548 ghcr.io/oasisprotocol/sapphire-localnet`)
+| Network | Chain ID | RPC |
+|---------|----------|-----|
+| Sapphire Mainnet | 0x5afe | https://sapphire.oasis.io |
+| Sapphire Testnet | 0x5aff | https://testnet.sapphire.oasis.io |
+| Sapphire Localnet | 0x5afd | http://localhost:8545 |
 
-Set `PRIVATE_KEY` for deployments; otherwise the test mnemonic is used.
+Run local node:
+```bash
+docker run -it -p8544-8548:8544-8548 ghcr.io/oasisprotocol/sapphire-localnet
+```
+
+## License
+
+MIT

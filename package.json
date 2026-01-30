@@ -6,6 +6,7 @@
     "hardhat": "^2.28.3"
   },
   "dependencies": {
+    "@oasisprotocol/sapphire-contracts": "^0.2.15",
     "@oasisprotocol/sapphire-ethers-v6": "^6.0.1",
     "@oasisprotocol/sapphire-paratime": "^2.3.0",
     "dotenv": "^17.2.3"

@@ -1,0 +1,33 @@
+{
+  "contracts": {
+    "sapphire-testnet": {
+      "EkaiControlPlane": "0x8C9ab7C940d39e535F0d06E23bcF627f482e61b0",
+      "owner": "0x4Ec6E3b99E2E4422d6e64313F5AA2A8470DCDa2b"
+    },
+    "sapphire-localnet": {
+      "EkaiControlPlane": null,
+      "owner": null
+    },
+    "sapphire": {
+      "EkaiControlPlane": null,
+      "owner": null
+    }
+  },
+  "networks": {
+    "sapphire": {
+      "chainId": "0x5afe",
+      "rpcUrl": "https://sapphire.oasis.io",
+      "explorer": "https://explorer.sapphire.oasis.io"
+    },
+    "sapphire-testnet": {
+      "chainId": "0x5aff",
+      "rpcUrl": "https://testnet.sapphire.oasis.io",
+      "explorer": "https://testnet.explorer.sapphire.oasis.io"
+    },
+    "sapphire-localnet": {
+      "chainId": "0x5afd",
+      "rpcUrl": "http://localhost:8545",
+      "explorer": null
+    }
+  }
+}
