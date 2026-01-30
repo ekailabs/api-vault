@@ -1,7 +1,7 @@
 {
   "contracts": {
     "sapphire-testnet": {
-      "EkaiControlPlane": "0x8C9ab7C940d39e535F0d06E23bcF627f482e61b0",
+      "EkaiControlPlane": "0xacE4763F5E5FeDB7770e48bB123CD479913Eb6C5",
       "owner": "0x4Ec6E3b99E2E4422d6e64313F5AA2A8470DCDa2b"
     },
     "sapphire-localnet": {

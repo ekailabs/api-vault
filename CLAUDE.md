@@ -10,7 +10,7 @@ EkaiControlPlane - a confidential control plane for ROFL apps on Oasis Sapphire.
 
 | Network | Address | Owner |
 |---------|---------|-------|
-| Sapphire Testnet | `0x8C9ab7C940d39e535F0d06E23bcF627f482e61b0` | `0x4Ec6E3b99E2E4422d6e64313F5AA2A8470DCDa2b` |
+| Sapphire Testnet | `0xacE4763F5E5FeDB7770e48bB123CD479913Eb6C5` | `0x4Ec6E3b99E2E4422d6e64313F5AA2A8470DCDa2b` |
 
 ## Commands
 
@@ -97,7 +97,7 @@ Set `PRIVATE_KEY` env var for deployment; defaults to test mnemonic.
 | `removeDelegate(address)` | Any | Revoke delegate access |
 | `addAllowedModel(bytes32, bytes32)` | Any | Restrict provider to specific model |
 | `removeAllowedModel(bytes32, bytes32)` | Any | Remove model restriction |
-| `getSecretCiphertext(address, bytes32)` | View | Get encrypted secret + metadata |
+| `getSecretCiphertext(address, bytes32)` | Owner/Gateway | Get encrypted secret + metadata |
 | `isDelegatePermitted(address, address)` | View | Check delegate permission |
 | `isModelPermitted(address, bytes32, bytes32)` | View | Check model permission |
 | `logReceipt(...)` | Gateway | Emit audit event |

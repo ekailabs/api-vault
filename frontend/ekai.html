@@ -347,22 +347,30 @@
     // ============ Config ============
     const PROVIDERS = ['ANTHROPIC', 'OPENAI', 'GOOGLE', 'XAI', 'OPENROUTER', 'GROQ'];
 
-    const CONFIG = {
-      testnet: {
-        chainId: '0x5aff',
-        name: 'Sapphire Testnet',
-        rpc: 'https://testnet.sapphire.oasis.io',
-        explorer: 'https://explorer.oasis.io/testnet/sapphire',
-        contract: '0x8C9ab7C940d39e535F0d06E23bcF627f482e61b0'
-      },
-      mainnet: {
-        chainId: '0x5afe',
-        name: 'Sapphire Mainnet',
-        rpc: 'https://sapphire.oasis.io',
-        explorer: 'https://explorer.oasis.io/mainnet/sapphire',
-        contract: null
+    // Config loaded from ../config.json
+    const NETWORK = 'sapphire-testnet';
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('../config.json');
+        const config = await res.json();
+        const netConfig = config.networks[NETWORK];
+        const contractConfig = config.contracts[NETWORK];
+
+        NET = {
+          chainId: netConfig.chainId,
+          name: NETWORK.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          rpc: netConfig.rpcUrl,
+          explorer: netConfig.explorer,
+          contract: contractConfig.EkaiControlPlane
+        };
+
+        initApp();
+      } catch (e) {
+        console.error('Failed to load config.json:', e);
+        document.body.innerHTML = '<h1 style="color: #f87171;">Failed to load ../config.json</h1>';
       }
-    };
+    }
 
     const ABI = [
       "function owner() view returns (address)",
@@ -388,23 +396,12 @@
 
     // ============ Helpers ============
     const $ = id => document.getElementById(id);
-    const NET = CONFIG.testnet;
+    const toId = name => ethers.keccak256(ethers.toUtf8Bytes(name.toUpperCase()));
 
+    let NET, readProvider, readContract;
     let provider, signer, contract, userAddress;
     let userSecrets = {}; // Track which providers have secrets: { OPENAI: true, ... }
     let isOwner = false; // Track if current user is contract owner
-
-    // Read-only provider and contract for public view calls (no wallet needed)
-    const readProvider = new ethers.JsonRpcProvider(NET.rpc);
-    const readContract = new ethers.Contract(NET.contract, ABI, readProvider);
-
-    // ============ Init (runs on page load) ============
-    $('networkName').textContent = NET.name;
-    $('contractAddr').textContent = `${NET.contract.slice(0,10)}...${NET.contract.slice(-6)}`;
-    $('contractAddr').onclick = () => {
-      window.open(`${NET.explorer}/search?q=${NET.contract}`, '_blank');
-    };
-    const toId = name => ethers.keccak256(ethers.toUtf8Bytes(name.toUpperCase()));
 
     function log(msg) {
       console.log(msg);
@@ -855,12 +852,28 @@
       await refreshUserSecrets();
     };
 
-    // ============ Auto-load on page load ============
-    updateAdminUI(); // Hide admin controls until we know user status
-    $('getInfoBtn').click();
-    $('checkAllProvidersBtn').click();
+    // ============ Init App (called after config loads) ============
+    function initApp() {
+      // Set up read-only provider and contract
+      readProvider = new ethers.JsonRpcProvider(NET.rpc);
+      readContract = new ethers.Contract(NET.contract, ABI, readProvider);
 
-    // Check network on page load
+      // Update UI with network info
+      $('networkName').textContent = NET.name;
+      $('contractAddr').textContent = `${NET.contract.slice(0,10)}...${NET.contract.slice(-6)}`;
+      $('contractAddr').onclick = () => {
+        window.open(`${NET.explorer}/address/${NET.contract}`, '_blank');
+      };
+
+      // Auto-load data
+      updateAdminUI();
+      $('getInfoBtn').click();
+      $('checkAllProvidersBtn').click();
+
+      // Check network
+      checkNetwork();
+    }
+
     async function checkNetwork() {
       if (!window.ethereum) return;
       try {
@@ -875,8 +888,6 @@
       }
     }
 
-    checkNetwork();
-
     // Click network warning to switch
     $('networkWarning').onclick = async () => {
       try {
@@ -890,6 +901,9 @@
         }
       }
     };
+
+    // Load config and start app
+    loadConfig();
 
   </script>
 </body>

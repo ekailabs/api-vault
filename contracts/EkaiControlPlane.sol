@@ -171,6 +171,12 @@ contract EkaiControlPlane is Ownable2Step {
         address owner,
         bytes32 providerId
     ) external view returns (bytes memory ciphertext, uint64 secretVersion, bool exists, uint64 roflKeyVersion) {
+        // Access control: only owner or gateway can read
+        require(
+            msg.sender == owner || msg.sender == gateway,
+            "Not authorized"
+        );
+
         Secret storage s = _secrets[owner][providerId];
         return (s.ciphertext, s.version, s.exists, roflKey.version);
     }

@@ -312,17 +312,68 @@ describe("EkaiControlPlane", function () {
     });
   });
 
-  describe("Secret isolation", function () {
-    it("secrets are isolated per owner", async function () {
+  describe("getSecretCiphertext access control", function () {
+    it("rejects random address reading secrets", async function () {
       const { ekai, owner, other, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
+
+      await expect(ekai.connect(other).getSecretCiphertext(owner.address, OPENAI))
+        .to.be.revertedWith("Not authorized");
+    });
+
+    it("allows owner to read their own secrets", async function () {
+      const { ekai, owner, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
+
+      const [ciphertext, version, exists] = await ekai.getSecretCiphertext(owner.address, OPENAI);
+      expect(exists).to.equal(true);
+      expect(version).to.equal(1);
+    });
+
+    it("allows gateway to read any owner's secrets", async function () {
+      const { ekai, owner, gateway, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+      await ekai.setGateway(gateway.address);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
+
+      const [ciphertext, version, exists] = await ekai.connect(gateway).getSecretCiphertext(owner.address, OPENAI);
+      expect(exists).to.equal(true);
+      expect(version).to.equal(1);
+    });
+
+    it("rejects delegate reading secrets directly", async function () {
+      const { ekai, owner, delegate, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+      await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
+      await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("secret"));
+      await ekai.addDelegate(delegate.address);
+
+      // Delegate is permitted but still cannot read directly
+      expect(await ekai.isDelegatePermitted(owner.address, delegate.address)).to.equal(true);
+      await expect(ekai.connect(delegate).getSecretCiphertext(owner.address, OPENAI))
+        .to.be.revertedWith("Not authorized");
+    });
+  });
+
+  describe("Secret isolation", function () {
+    it("secrets are isolated per owner", async function () {
+      const { ekai, owner, gateway, other, OPENAI } = await loadFixture(deployFixture);
+      await ekai.addProvider(OPENAI);
+      await ekai.setGateway(gateway.address);
       await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
 
       await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("owner-secret"));
       await ekai.connect(other).setSecret(OPENAI, ethers.toUtf8Bytes("other-secret"));
 
+      // Owner reads their own secret
       const [ownerCiphertext, , ownerExists, ] = await ekai.getSecretCiphertext(owner.address, OPENAI);
-      const [otherCiphertext, , otherExists, ] = await ekai.getSecretCiphertext(other.address, OPENAI);
+      // Other reads their own secret
+      const [otherCiphertext, , otherExists, ] = await ekai.connect(other).getSecretCiphertext(other.address, OPENAI);
 
       expect(ethers.toUtf8String(ownerCiphertext)).to.equal("owner-secret");
       expect(ethers.toUtf8String(otherCiphertext)).to.equal("other-secret");
@@ -331,8 +382,9 @@ describe("EkaiControlPlane", function () {
     });
 
     it("revoking one owner's secret doesn't affect another", async function () {
-      const { ekai, owner, other, OPENAI } = await loadFixture(deployFixture);
+      const { ekai, owner, gateway, other, OPENAI } = await loadFixture(deployFixture);
       await ekai.addProvider(OPENAI);
+      await ekai.setGateway(gateway.address);
       await ekai.setRoflKey(ethers.toUtf8Bytes("pubkey"), 1, true);
 
       await ekai.setSecret(OPENAI, ethers.toUtf8Bytes("owner-secret"));
@@ -340,8 +392,10 @@ describe("EkaiControlPlane", function () {
 
       await ekai.revokeSecret(OPENAI);
 
+      // Owner reads their own secret
       const [, , ownerExists, ] = await ekai.getSecretCiphertext(owner.address, OPENAI);
-      const [, , otherExists, ] = await ekai.getSecretCiphertext(other.address, OPENAI);
+      // Other reads their own secret
+      const [, , otherExists, ] = await ekai.connect(other).getSecretCiphertext(other.address, OPENAI);
 
       expect(ownerExists).to.equal(false);
       expect(otherExists).to.equal(true);
