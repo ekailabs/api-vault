@@ -1,5 +1,10 @@
 {
   "name": "hardhat-project",
+  "scripts": {
+    "dashboard": "cd dashboard && npm run dev",
+    "dashboard:install": "cd dashboard && npm install",
+    "dashboard:build": "cd dashboard && npm run build"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@oasisprotocol/sapphire-hardhat": "^2.22.2",

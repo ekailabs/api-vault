@@ -4,7 +4,7 @@ Guidance for Claude Code when working with this repository.
 
 ## What Is This?
 
-Ekai Control Plane - share your AI API keys with anyone without revealing them. Keys are encrypted on-chain and only decrypted inside a secure enclave (TEE). No one ever sees your keys - not delegates, not node operators, not even us.
+Ekai AI Control Plane - share your AI API keys with anyone without revealing them. Keys are encrypted on-chain and only decrypted inside a secure enclave (TEE). No one ever sees your keys - not delegates, not node operators, not even us.
 
 Works with the [Ekai Gateway](https://github.com/ekailabs/ekai-gateway) which runs in the enclave and makes API calls on behalf of authorized users.
 

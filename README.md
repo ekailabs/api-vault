@@ -1,4 +1,4 @@
-# Ekai Control Plane
+# Ekai AI Control Plane
 
 **Share your AI API keys with anyone, without exposing them.**
 
@@ -96,7 +96,7 @@ npx hardhat ekai-add-model --address 0x1647A17be7Ad7A01C6657aC05FA10349E7f32268 
                                           │
                                           ▼
                      ┌─────────────────────────────────────────────────┐
-                     │  Control Plane (this repo)                      │
+                     │  AI Control Plane (this repo)                      │
                      │                                                 │
                      │  • Your encrypted API keys                     │
                      │  • Who you've shared access with               │
@@ -105,7 +105,7 @@ npx hardhat ekai-add-model --address 0x1647A17be7Ad7A01C6657aC05FA10349E7f32268 
                      └─────────────────────────────────────────────────┘
 ```
 
-- **Control Plane** (this repo): On-chain storage on [Oasis Sapphire](https://oasisprotocol.org/sapphire)
+- **AI Control Plane** (this repo): On-chain storage on [Oasis Sapphire](https://oasisprotocol.org/sapphire)
 - **[Ekai Gateway](https://github.com/ekailabs/ekai-gateway)**: The proxy that decrypts and routes requests
 
 ## All Commands
