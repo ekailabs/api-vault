@@ -127,6 +127,27 @@ export function WalletProvider({ children }: WalletProviderProps) {
     setError(null);
   }, []);
 
+  // Check if wallet is already connected on mount
+  useEffect(() => {
+    const checkExistingConnection = async () => {
+      if (typeof window === 'undefined' || !window.ethereum) return;
+
+      try {
+        // Check if already connected (doesn't prompt user)
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[];
+        if (accounts && accounts.length > 0) {
+          const provider = new BrowserProvider(window.ethereum);
+          const newSigner = await provider.getSigner();
+          await updateAccount(accounts[0], newSigner);
+        }
+      } catch (e) {
+        console.error('Failed to check existing connection:', e);
+      }
+    };
+
+    checkExistingConnection();
+  }, [updateAccount]);
+
   // Set up MetaMask event listeners
   useEffect(() => {
     if (typeof window === 'undefined' || !window.ethereum) return;
@@ -135,9 +156,19 @@ export function WalletProvider({ children }: WalletProviderProps) {
       const accounts = args[0] as string[];
       if (!accounts || accounts.length === 0) {
         disconnect();
-      } else {
-        // Account changed - need to reconnect
-        disconnect();
+      } else if (address && accounts[0].toLowerCase() !== address.toLowerCase()) {
+        // Account changed - reconnect with new account
+        const reconnect = async () => {
+          try {
+            const provider = new BrowserProvider(window.ethereum!);
+            const newSigner = await provider.getSigner();
+            await updateAccount(accounts[0], newSigner);
+          } catch (e) {
+            console.error('Failed to reconnect:', e);
+            disconnect();
+          }
+        };
+        reconnect();
       }
     };
 
@@ -153,7 +184,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener('chainChanged', handleChainChanged);
     };
-  }, [disconnect]);
+  }, [disconnect, address, updateAccount]);
 
   return (
     <WalletContext.Provider value={{
