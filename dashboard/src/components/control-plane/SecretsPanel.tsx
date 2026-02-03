@@ -1,9 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
 import { PROVIDERS, Provider, toId, getReadContract } from '@/lib/contract';
+import { encryptSecret, hexToBytes } from '@/lib/encryption';
+
+interface RoflKeyState {
+  pubkey: string;
+  version: bigint;
+  active: boolean;
+}
 
 export default function SecretsPanel() {
   const { address, contract } = useWallet();
@@ -11,9 +17,25 @@ export default function SecretsPanel() {
   const [secretValue, setSecretValue] = useState('');
   const [revokeProvider, setRevokeProvider] = useState<Provider>('ANTHROPIC');
   const [mySecrets, setMySecrets] = useState<Record<string, boolean>>({});
+  const [roflKey, setRoflKey] = useState<RoflKeyState | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch ROFL key status
+  const refreshRoflKey = useCallback(async () => {
+    try {
+      const readContract = getReadContract();
+      const [pubkey, version, active] = await readContract.getRoflKey();
+      setRoflKey({ pubkey, version, active });
+    } catch {
+      setRoflKey(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshRoflKey();
+  }, [refreshRoflKey]);
 
   const refreshSecrets = useCallback(async () => {
     if (!address) {
@@ -43,10 +65,22 @@ export default function SecretsPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.setSecret(toId(secretProvider), ethers.toUtf8Bytes(secretValue));
+      // Check ROFL key status
+      if (!roflKey || !roflKey.active || roflKey.pubkey === '0x' || roflKey.pubkey.length <= 2) {
+        setError('ROFL key not active. Contact contract owner to set up encryption.');
+        setLoading(false);
+        return;
+      }
+
+      // Encrypt secret with gateway's public key
+      const pubkeyBytes = hexToBytes(roflKey.pubkey);
+      const ciphertext = encryptSecret(secretValue, pubkeyBytes);
+
+      // Store encrypted secret on-chain
+      const tx = await contract.setSecret(toId(secretProvider), ciphertext);
       await tx.wait();
       setSecretValue('');
-      setSuccess(`Secret saved for ${secretProvider}`);
+      setSuccess(`Secret encrypted and saved for ${secretProvider}`);
       await refreshSecrets();
     } catch (e: unknown) {
       const err = e as { reason?: string; message?: string };
@@ -86,6 +120,20 @@ export default function SecretsPanel() {
           {success}
         </div>
       )}
+
+      {/* Encryption Status */}
+      <div className={`p-4 rounded-lg border ${roflKey?.active ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
+        <div className="flex items-center gap-2">
+          <span className={roflKey?.active ? 'text-green-600' : 'text-yellow-600'}>
+            {roflKey?.active ? '🔒' : '⚠️'}
+          </span>
+          <span className={roflKey?.active ? 'text-green-700' : 'text-yellow-700'}>
+            {roflKey?.active
+              ? 'Encryption active - secrets are encrypted for the gateway enclave'
+              : 'Encryption not available - ROFL key not set or inactive'}
+          </span>
+        </div>
+      </div>
 
       {/* Set Secret */}
       <div className="bg-white p-6 rounded-lg border">
