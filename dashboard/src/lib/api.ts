@@ -1,36 +1,6 @@
-/**
- * Get the API base URL with smart runtime detection.
- * Works for ROFL proxies, local development, and production deployments.
- * This is the single source of truth for API URL configuration.
- */
-export function getApiBaseUrl(): string {
-  // Server-side: use env var
-  if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
-  }
-
-  // Client-side: check if env var is set and not a placeholder
-  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (envUrl && envUrl !== '__API_URL_PLACEHOLDER__') {
-    return envUrl;
-  }
-
-  // Smart fallback: derive from browser location (works for ROFL and proxies)
-  const { protocol, hostname, port } = window.location;
-
-  // ROFL-style proxy URL pattern (p3000 -> p3001)
-  if (hostname.includes('p3000')) {
-    return `${protocol}//${hostname.replace('p3000', 'p3001')}`;
-  }
-
-  // Local dev: port 3000 -> 3001
-  if (port === '3000') {
-    return `${protocol}//${hostname}:3001`;
-  }
-
-  // Production: assume API is on same origin or use env var
-  return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
-}
+// Re-export getApiBaseUrl from centralized config
+export { getApiBaseUrl } from './config';
+import { getApiBaseUrl } from './config';
 
 // Cached API base URL for performance
 const API_BASE_URL = getApiBaseUrl();
@@ -109,7 +79,7 @@ export interface BudgetResponse {
 export interface UserPreferences {
   address: string;
   api_address: string;
-  default_model: string | null;
+  model_preferences: string[] | null;
   updated_at: string | null;
 }
 
@@ -258,7 +228,7 @@ export const apiService = {
     return response.json();
   },
 
-  async updatePreferences(payload: { api_address?: string; default_model?: string | null }): Promise<UserPreferences> {
+  async updatePreferences(payload: { api_address?: string; model_preferences?: string[] }): Promise<UserPreferences> {
     const response = await fetch(`${API_BASE_URL}/user/preferences`, {
       method: 'PUT',
       headers: {
@@ -272,7 +242,19 @@ export const apiService = {
       if (response.status === 401) {
         handleAuthError();
       }
-      throw new Error(`Failed to update preferences: ${response.statusText}`);
+      // Try to get error message from response body
+      let errorMessage = `Failed to update preferences: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = typeof errorData.error === 'string' ? errorData.error : errorData.error.message || errorMessage;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        // Ignore JSON parse errors
+      }
+      throw new Error(errorMessage);
     }
 
     return response.json();

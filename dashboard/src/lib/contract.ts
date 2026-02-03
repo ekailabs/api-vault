@@ -1,27 +1,17 @@
 import { ethers } from 'ethers';
+import { NETWORKS, CONTRACTS, DEFAULT_NETWORK, NETWORK as NETWORK_CONFIG } from './config';
 
 export const PROVIDERS = ['ANTHROPIC', 'OPENAI', 'GOOGLE', 'XAI', 'OPENROUTER', 'GROQ'] as const;
 export type Provider = typeof PROVIDERS[number];
 
-export const NETWORKS = {
-  'sapphire-testnet': {
-    chainId: '0x5aff',
-    name: 'Sapphire Testnet',
-    rpcUrl: 'https://testnet.sapphire.oasis.io',
-    explorer: 'https://testnet.explorer.sapphire.oasis.io',
-    contract: '0x1647A17be7Ad7A01C6657aC05FA10349E7f32268',
-  },
-  'sapphire': {
-    chainId: '0x5afe',
-    name: 'Sapphire Mainnet',
-    rpcUrl: 'https://sapphire.oasis.io',
-    explorer: 'https://explorer.sapphire.oasis.io',
-    contract: null as string | null,
-  },
-} as const;
+// Re-export for backwards compatibility
+export { NETWORKS, DEFAULT_NETWORK };
 
-export const DEFAULT_NETWORK = 'sapphire-testnet';
-export const NETWORK = NETWORKS[DEFAULT_NETWORK];
+// Combined network + contract config for current network
+export const NETWORK = {
+  ...NETWORK_CONFIG,
+  contract: CONTRACTS[DEFAULT_NETWORK].EkaiControlPlane,
+};
 
 export const CONTRACT_ABI = [
   "function owner() view returns (address)",

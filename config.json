@@ -1,4 +1,5 @@
 {
+  "defaultNetwork": "sapphire-testnet",
   "contracts": {
     "sapphire-testnet": {
       "EkaiControlPlane": "0x1647A17be7Ad7A01C6657aC05FA10349E7f32268",
@@ -16,18 +17,24 @@
   "networks": {
     "sapphire": {
       "chainId": "0x5afe",
+      "name": "Sapphire Mainnet",
       "rpcUrl": "https://sapphire.oasis.io",
-      "explorer": "https://explorer.sapphire.oasis.io"
+      "explorer": "https://explorer.sapphire.oasis.io",
+      "gateway": null
     },
     "sapphire-testnet": {
       "chainId": "0x5aff",
+      "name": "Sapphire Testnet",
       "rpcUrl": "https://testnet.sapphire.oasis.io",
-      "explorer": "https://testnet.explorer.sapphire.oasis.io"
+      "explorer": "https://testnet.explorer.sapphire.oasis.io",
+      "gateway": null
     },
     "sapphire-localnet": {
       "chainId": "0x5afd",
+      "name": "Sapphire Localnet",
       "rpcUrl": "http://localhost:8545",
-      "explorer": null
+      "explorer": null,
+      "gateway": "http://localhost:3001"
     }
   }
 }

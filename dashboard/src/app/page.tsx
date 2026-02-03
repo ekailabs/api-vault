@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import TrendChart from '@/components/TrendChart';
 import ProviderChart from '@/components/ProviderChart';
 import ModelChart from '@/components/ModelChart';
@@ -8,22 +8,41 @@ import StatsCards from '@/components/StatsCards';
 import SetupModal from '@/components/SetupModal';
 import PreferencesModal from '@/components/PreferencesModal';
 import ControlPlanePage from '@/components/control-plane/ControlPlanePage';
+import ModelCatalog from '@/components/ModelCatalog';
 import { useUsageData } from '@/hooks/useUsageData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { generateDemoData, aggregateDemoData } from '@/lib/demo-data';
 import { shortenAddress } from '@/lib/contract';
-import Link from 'next/link';
+import { apiService } from '@/lib/api';
 
-type MainTab = 'analytics' | 'control-plane';
+type MainTab = 'control-plane' | 'dashboard' | 'models';
 
 export default function Dashboard() {
-  const [mainTab, setMainTab] = useState<MainTab>('analytics');
+  const [mainTab, setMainTab] = useState<MainTab>('control-plane');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
+  const [userModels, setUserModels] = useState<string[]>([]);
   const auth = useAuth();
   const wallet = useWallet();
+
+  // Fetch user preferences when authenticated
+  useEffect(() => {
+    if (auth.token) {
+      apiService.getPreferences()
+        .then(prefs => {
+          if (prefs.model_preferences) {
+            setUserModels(prefs.model_preferences);
+          }
+        })
+        .catch(() => {
+          // Ignore errors - user may not have preferences yet
+        });
+    } else {
+      setUserModels([]);
+    }
+  }, [auth.token, showPreferences]); // Re-fetch when preferences modal closes
 
   // All time - no date filtering
   const realUsageData = useUsageData(undefined, undefined);
@@ -51,16 +70,6 @@ export default function Dashboard() {
               {/* Main Tabs */}
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={() => setMainTab('analytics')}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                    mainTab === 'analytics'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Dashboard
-                </button>
-                <button
                   onClick={() => setMainTab('control-plane')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                     mainTab === 'control-plane'
@@ -70,114 +79,141 @@ export default function Dashboard() {
                 >
                   Control Plane
                 </button>
+                <button
+                  onClick={() => setMainTab('dashboard')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                    mainTab === 'dashboard'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => setMainTab('models')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                    mainTab === 'models'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Models
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {/* Dashboard-specific controls */}
-              {mainTab === 'analytics' && (
-                <>
-                  {/* Live/Demo Toggle */}
-                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                    <button
-                      onClick={() => setIsDemoMode(false)}
-                      className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                        !isDemoMode
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      Live
-                    </button>
-                    <button
-                      onClick={() => setIsDemoMode(true)}
-                      className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                        isDemoMode
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      Demo
-                    </button>
-                  </div>
-
-                  {/* Use Gateway / Connected State */}
-                  {auth.token ? (
-                    <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        Connected
-                      </span>
-                      <button
-                        onClick={() => setShowPreferences(true)}
-                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Preferences"
-                      >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setShowSetup(true)}
-                        className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
-                        style={{ backgroundColor: '#004f4f' }}
-                      >
-                        Setup
-                      </button>
-                      <button
-                        onClick={() => auth.logout()}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowSetup(true)}
-                      className="px-5 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: '#004f4f' }}
-                    >
-                      Use Gateway
-                    </button>
-                  )}
-                </>
+              {/* Dashboard-specific: Live/Demo Toggle */}
+              {mainTab === 'dashboard' && (
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setIsDemoMode(false)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                      !isDemoMode
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Live
+                  </button>
+                  <button
+                    onClick={() => setIsDemoMode(true)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                      isDemoMode
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Demo
+                  </button>
+                </div>
               )}
 
-              {/* Control Plane-specific controls */}
-              {mainTab === 'control-plane' && (
-                <>
-                  {wallet.address ? (
-                    <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        {shortenAddress(wallet.address)}
-                      </span>
-                      <button
-                        onClick={wallet.disconnect}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Disconnect
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={wallet.connect}
-                      disabled={wallet.isConnecting}
-                      className="px-5 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: '#004f4f' }}
-                    >
-                      {wallet.isConnecting ? 'Connecting...' : 'Connect Wallet'}
-                    </button>
-                  )}
-                </>
+              {/* Wallet Connection Status - shown on both tabs */}
+              {wallet.address ? (
+                <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  {shortenAddress(wallet.address)}
+                </span>
+              ) : (
+                <button
+                  onClick={wallet.connect}
+                  disabled={wallet.isConnecting}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  {wallet.isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                </button>
+              )}
+
+              {/* Auth Controls - shown on both tabs */}
+              {auth.token ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowPreferences(true)}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Preferences"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setShowSetup(true)}
+                    className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: '#004f4f' }}
+                  >
+                    Setup
+                  </button>
+                  <button
+                    onClick={() => auth.logout()}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowSetup(true)}
+                  className="px-5 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: '#004f4f' }}
+                >
+                  Use Gateway
+                </button>
               )}
             </div>
           </div>
         </div>
       </header>
 
+      {/* User's Selected Models Banner */}
+      {auth.token && userModels.length > 0 && (
+        <div className="bg-white border-b" style={{ borderColor: '#e5e5e5' }}>
+          <div className="max-w-7xl mx-auto px-6 py-3">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-600">Your models:</span>
+              <div className="flex flex-wrap gap-2">
+                {userModels.map((model) => (
+                  <span
+                    key={model}
+                    className="px-2.5 py-1 text-xs font-medium bg-teal-50 text-teal-700 rounded-full border border-teal-200"
+                  >
+                    {model}
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowPreferences(true)}
+                className="ml-auto text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Demo Mode Banner */}
-      {mainTab === 'analytics' && isDemoMode && (
+      {mainTab === 'dashboard' && isDemoMode && (
         <div className="bg-amber-50 border-b border-amber-200">
           <div className="max-w-7xl mx-auto px-6 py-2">
             <p className="text-amber-800 text-sm text-center">
@@ -189,7 +225,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
-        {mainTab === 'analytics' ? (
+        {mainTab === 'dashboard' && (
           <>
             {/* Stats Cards */}
             <StatsCards usageData={usageData} />
@@ -205,24 +241,10 @@ export default function Dashboard() {
                 <ProviderChart usageData={usageData} />
               </div>
             </div>
-
-            {/* Model Catalog Link */}
-            <div className="mt-12">
-              <Link
-                href="/models"
-                className="inline-flex items-center gap-2 px-8 py-4 text-white rounded-lg hover:opacity-90 transition-opacity font-semibold text-lg"
-                style={{ backgroundColor: '#004f4f' }}
-              >
-                View Model Catalog
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
           </>
-        ) : (
-          <ControlPlanePage />
         )}
+        {mainTab === 'control-plane' && <ControlPlanePage />}
+        {mainTab === 'models' && <ModelCatalog />}
       </main>
 
       <SetupModal

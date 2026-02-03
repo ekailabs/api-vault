@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from './api';
+import { getApiBaseUrl } from './config';
 
 export const CHART_COLORS = [
   '#3b82f6', // blue-500
