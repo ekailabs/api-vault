@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiService } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/api';
 
 export interface AuthState {
   address: string | null;
@@ -14,7 +14,7 @@ export interface AuthState {
 
 export interface AuthContextType extends AuthState {
   connectWallet: () => Promise<string>;
-  login: (expiration: number, signature: string) => Promise<void>;
+  login: (address: string, expiration: number, signature: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => boolean;
 }
@@ -208,23 +208,3 @@ export function useAuth(): AuthContextType {
   return context;
 }
 
-/**
- * Helper to get the API base URL (mirrors the pattern in api.ts)
- */
-function getApiBaseUrl(): string {
-  if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
-  }
-
-  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (envUrl && envUrl !== '__API_URL_PLACEHOLDER__') {
-    return envUrl;
-  }
-
-  const { protocol, hostname } = window.location;
-  if (hostname.includes('p3000')) {
-    return `${protocol}//${hostname.replace('p3000', 'p3001')}`;
-  }
-
-  return 'http://localhost:3001';
-}

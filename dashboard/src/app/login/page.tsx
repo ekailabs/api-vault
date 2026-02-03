@@ -9,7 +9,8 @@ import {
   signMessage,
   formatTokenExport,
   formatExpirationTime,
-  copyToClipboard
+  copyToClipboard,
+  getApiBaseUrl
 } from '@/lib/auth';
 
 const TOKEN_TTL = 604800; // 7 days
@@ -22,7 +23,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [selectedTool, setSelectedTool] = useState<'claude-code' | 'codex'>('claude-code');
 
   const handleConnect = async () => {
     try {
@@ -59,8 +59,8 @@ export default function LoginPage() {
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: '0x5aff' }]
           });
-        } catch (switchError: any) {
-          if (switchError.code === 4902) {
+        } catch (switchError: unknown) {
+          if ((switchError as { code?: number }).code === 4902) {
             // Network not found, add it
             await window.ethereum?.request({
               method: 'wallet_addEthereumChain',
@@ -207,7 +207,7 @@ export default function LoginPage() {
                         </button>
                       </div>
                       <p className="text-xs text-indigo-700">
-                        Then run: <code className="bg-white px-2 py-1 rounded">claude-code "your command"</code>
+                        Then run: <code className="bg-white px-2 py-1 rounded">claude-code &quot;your command&quot;</code>
                       </p>
                     </div>
                   </div>
@@ -224,7 +224,7 @@ export default function LoginPage() {
 
 [model_providers.ekai]
 name = "Ekai Gateway"
-base_url = "http://localhost:3001/v1"
+base_url = "${getApiBaseUrl()}/v1"
 wire_api = "chat"`}
                       </div>
                       <p className="text-xs text-orange-700 mb-2">
@@ -240,7 +240,7 @@ wire_api = "chat"`}
                         </button>
                       </div>
                       <p className="text-xs text-orange-700">
-                        Then run: <code className="bg-white px-2 py-1 rounded">codex --model "gpt-4o"</code>
+                        Then run: <code className="bg-white px-2 py-1 rounded">codex --model &quot;gpt-4o&quot;</code>
                       </p>
                     </div>
                   </div>

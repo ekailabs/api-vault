@@ -1,26 +1,39 @@
-// API Configuration with smart runtime detection
-const API_BASE_URL = (() => {
+/**
+ * Get the API base URL with smart runtime detection.
+ * Works for ROFL proxies, local development, and production deployments.
+ * This is the single source of truth for API URL configuration.
+ */
+export function getApiBaseUrl(): string {
   // Server-side: use env var
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
   }
-  
-  // Client-side: check if placeholder wasn't replaced
+
+  // Client-side: check if env var is set and not a placeholder
   const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (envUrl && envUrl !== '__API_URL_PLACEHOLDER__') {
     return envUrl;
   }
-  
+
   // Smart fallback: derive from browser location (works for ROFL and proxies)
-  const { protocol, hostname } = window.location;
+  const { protocol, hostname, port } = window.location;
+
+  // ROFL-style proxy URL pattern (p3000 -> p3001)
   if (hostname.includes('p3000')) {
-    // ROFL-style proxy URL pattern (p3000 -> p3001)
     return `${protocol}//${hostname.replace('p3000', 'p3001')}`;
   }
-  
-  // Default for local dev
-  return 'http://localhost:3001';
-})();
+
+  // Local dev: port 3000 -> 3001
+  if (port === '3000') {
+    return `${protocol}//${hostname}:3001`;
+  }
+
+  // Production: assume API is on same origin or use env var
+  return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
+}
+
+// Cached API base URL for performance
+const API_BASE_URL = getApiBaseUrl();
 // Types based on your backend response
 export interface UsageRecord {
   id: number;
@@ -91,6 +104,13 @@ export interface BudgetResponse {
   window: 'monthly';
   spentMonthToDate: number;
   remaining: number | null;
+}
+
+export interface UserPreferences {
+  address: string;
+  api_address: string;
+  default_model: string | null;
+  updated_at: string | null;
 }
 
 // API service functions
@@ -220,6 +240,39 @@ export const apiService = {
         handleAuthError();
       }
       throw new Error(`Failed to update budget: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  async getPreferences(): Promise<UserPreferences> {
+    const response = await fetch(`${API_BASE_URL}/user/preferences`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleAuthError();
+      }
+      throw new Error(`Failed to fetch preferences: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  async updatePreferences(payload: { api_address?: string; default_model?: string | null }): Promise<UserPreferences> {
+    const response = await fetch(`${API_BASE_URL}/user/preferences`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleAuthError();
+      }
+      throw new Error(`Failed to update preferences: ${response.statusText}`);
     }
 
     return response.json();

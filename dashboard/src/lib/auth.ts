@@ -3,6 +3,11 @@
  * Handles EIP-712 message signing and token management
  */
 
+import { getApiBaseUrl } from './api';
+
+// Re-export for backwards compatibility
+export { getApiBaseUrl };
+
 const OASIS_SAPPHIRE_TESTNET_CHAIN_ID = 23295; // 0x5aff
 
 /**
@@ -105,26 +110,6 @@ export function formatTokenExport(token: string): string {
   return `export ANTHROPIC_BASE_URL=${apiUrl}\nexport ANTHROPIC_API_KEY=${token}`;
 }
 
-/**
- * Get API base URL (mirrors logic in api.ts and AuthContext)
- */
-export function getApiBaseUrl(): string {
-  if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
-  }
-
-  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (envUrl && envUrl !== '__API_URL_PLACEHOLDER__') {
-    return envUrl;
-  }
-
-  const { protocol, hostname } = window.location;
-  if (hostname.includes('p3000')) {
-    return `${protocol}//${hostname.replace('p3000', 'p3001')}`;
-  }
-
-  return 'http://localhost:3001';
-}
 
 /**
  * Calculate time until token expiration
@@ -216,6 +201,7 @@ export interface EIP712Message {
 export interface EIP712TypedData {
   domain: EIP712Domain;
   types: {
+    EIP712Domain: EIP712Type[];
     Login: EIP712Type[];
   };
   primaryType: 'Login';
