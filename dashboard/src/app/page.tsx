@@ -6,15 +6,22 @@ import ProviderChart from '@/components/ProviderChart';
 import ModelChart from '@/components/ModelChart';
 import StatsCards from '@/components/StatsCards';
 import SetupModal from '@/components/SetupModal';
+import ControlPlanePage from '@/components/control-plane/ControlPlanePage';
 import { useUsageData } from '@/hooks/useUsageData';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWallet } from '@/contexts/WalletContext';
 import { generateDemoData, aggregateDemoData } from '@/lib/demo-data';
+import { shortenAddress } from '@/lib/contract';
 import Link from 'next/link';
 
+type MainTab = 'analytics' | 'control-plane';
+
 export default function Dashboard() {
+  const [mainTab, setMainTab] = useState<MainTab>('analytics');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const auth = useAuth();
+  const wallet = useWallet();
 
   // All time - no date filtering
   const realUsageData = useUsageData(undefined, undefined);
@@ -33,66 +40,124 @@ export default function Dashboard() {
     <div className="min-h-screen" style={{ backgroundColor: '#FFFCEC' }}>
       {/* Header */}
       <header className="bg-white border-b" style={{ borderColor: '#e5e5e5' }}>
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-semibold text-gray-900 mb-1">Ekai Gateway</h1>
-              <p className="text-gray-600">Model & Token Analytics · All Time</p>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* Live/Demo Toggle */}
+            <div className="flex items-center gap-8">
+              <div>
+                <h1 className="text-2xl font-semibold text-gray-900">Ekai Gateway</h1>
+              </div>
+              {/* Main Tabs */}
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={() => setIsDemoMode(false)}
+                  onClick={() => setMainTab('analytics')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                    !isDemoMode
+                    mainTab === 'analytics'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Live
+                  Analytics
                 </button>
                 <button
-                  onClick={() => setIsDemoMode(true)}
+                  onClick={() => setMainTab('control-plane')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                    isDemoMode
+                    mainTab === 'control-plane'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Demo
+                  Control Plane
                 </button>
               </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Analytics-specific controls */}
+              {mainTab === 'analytics' && (
+                <>
+                  {/* Live/Demo Toggle */}
+                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setIsDemoMode(false)}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                        !isDemoMode
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Live
+                    </button>
+                    <button
+                      onClick={() => setIsDemoMode(true)}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                        isDemoMode
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Demo
+                    </button>
+                  </div>
 
-              {/* Use Gateway / Connected State */}
-              {auth.token ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    Connected
-                  </span>
-                  <button
-                    onClick={() => setShowSetup(true)}
-                    className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: '#004f4f' }}
-                  >
-                    Setup
-                  </button>
-                  <button
-                    onClick={() => auth.logout()}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Logout
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowSetup(true)}
-                  className="px-5 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: '#004f4f' }}
-                >
-                  Use Gateway
-                </button>
+                  {/* Use Gateway / Connected State */}
+                  {auth.token ? (
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                        Connected
+                      </span>
+                      <button
+                        onClick={() => setShowSetup(true)}
+                        className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: '#004f4f' }}
+                      >
+                        Setup
+                      </button>
+                      <button
+                        onClick={() => auth.logout()}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowSetup(true)}
+                      className="px-5 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: '#004f4f' }}
+                    >
+                      Use Gateway
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Control Plane-specific controls */}
+              {mainTab === 'control-plane' && (
+                <>
+                  {wallet.address ? (
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                        {shortenAddress(wallet.address)}
+                      </span>
+                      <button
+                        onClick={wallet.disconnect}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={wallet.connect}
+                      disabled={wallet.isConnecting}
+                      className="px-5 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: '#004f4f' }}
+                    >
+                      {wallet.isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -100,7 +165,7 @@ export default function Dashboard() {
       </header>
 
       {/* Demo Mode Banner */}
-      {isDemoMode && (
+      {mainTab === 'analytics' && isDemoMode && (
         <div className="bg-amber-50 border-b border-amber-200">
           <div className="max-w-7xl mx-auto px-6 py-2">
             <p className="text-amber-800 text-sm text-center">
@@ -112,34 +177,40 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
-        {/* Stats Cards */}
-        <StatsCards usageData={usageData} />
+        {mainTab === 'analytics' ? (
+          <>
+            {/* Stats Cards */}
+            <StatsCards usageData={usageData} />
 
-        {/* Charts Section */}
-        <div className="space-y-12">
-          {/* Token Usage Trend */}
-          <TrendChart usageData={usageData} />
+            {/* Charts Section */}
+            <div className="space-y-12">
+              {/* Token Usage Trend */}
+              <TrendChart usageData={usageData} />
 
-          {/* Model & Provider Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <ModelChart usageData={usageData} />
-            <ProviderChart usageData={usageData} />
-          </div>
-        </div>
+              {/* Model & Provider Breakdown */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <ModelChart usageData={usageData} />
+                <ProviderChart usageData={usageData} />
+              </div>
+            </div>
 
-        {/* Model Catalog Link */}
-        <div className="mt-12">
-          <Link
-            href="/models"
-            className="inline-flex items-center gap-2 px-8 py-4 text-white rounded-lg hover:opacity-90 transition-opacity font-semibold text-lg"
-            style={{ backgroundColor: '#004f4f' }}
-          >
-            View Model Catalog
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
+            {/* Model Catalog Link */}
+            <div className="mt-12">
+              <Link
+                href="/models"
+                className="inline-flex items-center gap-2 px-8 py-4 text-white rounded-lg hover:opacity-90 transition-opacity font-semibold text-lg"
+                style={{ backgroundColor: '#004f4f' }}
+              >
+                View Model Catalog
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </>
+        ) : (
+          <ControlPlanePage />
+        )}
       </main>
 
       <SetupModal
