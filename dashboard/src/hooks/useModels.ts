@@ -17,6 +17,12 @@ async function fetchAllModels(filter: ModelsFilter) {
     offset: 0,
   });
 
+  // Defensive check in case response structure is unexpected
+  if (!firstPage || !Array.isArray(firstPage.items)) {
+    console.error('Unexpected API response:', firstPage);
+    return { total: 0, limit: 0, offset: 0, items: [] };
+  }
+
   const combinedItems: ModelCatalogEntry[] = [...firstPage.items];
   let offset = combinedItems.length;
 

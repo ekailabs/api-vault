@@ -130,10 +130,23 @@ export default function Dashboard() {
 
               {/* Wallet Connection Status - shown on both tabs */}
               {wallet.address ? (
-                <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  {shortenAddress(wallet.address)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    {shortenAddress(wallet.address)}
+                  </span>
+                  {!auth.token && (
+                    <button
+                      onClick={wallet.disconnect}
+                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Disconnect wallet"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               ) : (
                 <button
                   onClick={wallet.connect}
@@ -165,7 +178,7 @@ export default function Dashboard() {
                     Setup
                   </button>
                   <button
-                    onClick={() => auth.logout()}
+                    onClick={() => { auth.logout(); wallet.disconnect(); }}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     Logout

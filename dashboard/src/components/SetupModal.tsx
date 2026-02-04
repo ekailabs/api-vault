@@ -15,7 +15,7 @@ import {
 
 const TOKEN_TTL = 604800; // 7 days
 
-// Popular models shown at top
+// Recommended models
 const POPULAR_MODELS = [
   { id: 'claude-haiku-4-5', provider: 'Anthropic' },
   { id: 'claude-opus-4-5', provider: 'Anthropic' },
@@ -53,7 +53,8 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
 
   // Load preferences when entering preferences step
   const loadPreferences = useCallback(async () => {
-    if (!auth.address) return;
+    // Wait for auth token to be available
+    if (!auth.address || !auth.token) return;
 
     try {
       setPrefsLoading(true);
@@ -76,13 +77,13 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
     } finally {
       setPrefsLoading(false);
     }
-  }, [auth.address]);
+  }, [auth.address, auth.token]);
 
   useEffect(() => {
-    if (step === 'preferences') {
+    if (step === 'preferences' && auth.token) {
       loadPreferences();
     }
-  }, [step, loadPreferences]);
+  }, [step, loadPreferences, auth.token]);
 
   // Reset state when modal opens
   const resetState = () => {
@@ -399,9 +400,19 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
 
                   {/* Model Preferences Section */}
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-1">Select Your Models</h3>
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-sm font-semibold text-gray-900">Select Your Models</h3>
+                      <a
+                        href="/models"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-teal-600 hover:text-teal-800 underline"
+                      >
+                        View full catalogue
+                      </a>
+                    </div>
                     <p className="text-xs text-gray-500 mb-4">
-                      Choose which models you want to use. The first selected model is your default.
+                      Choose from recommended models or add custom ones.
                     </p>
 
                     <div className="space-y-2 max-h-64 overflow-y-auto">

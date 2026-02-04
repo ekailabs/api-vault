@@ -133,7 +133,9 @@ export const formatNumber = (num: number) => {
 };
 
 // Get human-readable provider name
-export const getProviderName = (provider: string): string => {
+export const getProviderName = (provider: string | undefined | null): string => {
+  if (!provider) return 'Unknown';
+
   const providerMap: Record<string, string> = {
     openai: 'OpenAI',
     anthropic: 'Anthropic',

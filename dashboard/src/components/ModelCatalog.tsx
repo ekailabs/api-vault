@@ -28,7 +28,9 @@ export default function ModelCatalog({ className = '' }: ModelCatalogProps) {
 
   const providers = useMemo(() => {
     const set = new Set<string>();
-    items.forEach(item => set.add(item.provider));
+    items.forEach(item => {
+      if (item.provider) set.add(item.provider);
+    });
     return Array.from(set).sort();
   }, [items]);
 

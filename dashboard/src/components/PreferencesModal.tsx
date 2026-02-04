@@ -222,9 +222,19 @@ export default function PreferencesModal({ open, onClose, userAddress }: Prefere
 
               {/* Model Preferences Section */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Select Your Models</h3>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-gray-900">Select Your Models</h3>
+                  <a
+                    href="/models"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-teal-600 hover:text-teal-800 underline"
+                  >
+                    View full catalogue
+                  </a>
+                </div>
                 <p className="text-xs text-gray-500 mb-4">
-                  Choose which models you want to use. The first selected model is your default.
+                  Choose from recommended models or add custom ones.
                 </p>
 
                 <div className="space-y-2 max-h-64 overflow-y-auto">

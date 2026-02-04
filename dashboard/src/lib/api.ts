@@ -170,16 +170,25 @@ export const apiService = {
     if (params?.offset) searchParams.append('offset', String(params.offset));
 
     const url = `${API_BASE_URL}/v1/models${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    const response = await fetch(url, {
-      headers: getAuthHeaders()
-    });
+    // No auth required - this is a public endpoint
+    const response = await fetch(url);
     if (!response.ok) {
-      if (response.status === 401) {
-        handleAuthError();
-      }
       throw new Error(`Failed to fetch models: ${response.statusText}`);
     }
-    return response.json();
+    const json = await response.json();
+
+    // Handle both OpenAI-style response { object: 'list', data: [...] }
+    // and extended response { items: [...], total, limit, offset }
+    if (json.object === 'list' && Array.isArray(json.data)) {
+      return {
+        items: json.data,
+        total: json.data.length,
+        limit: params?.limit || json.data.length,
+        offset: params?.offset || 0,
+      };
+    }
+
+    return json;
   },
 
   async getBudget(): Promise<BudgetResponse> {

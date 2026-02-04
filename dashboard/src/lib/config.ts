@@ -36,41 +36,20 @@ export const CONTRACT = CONTRACTS[DEFAULT_NETWORK];
 /**
  * Get the API/Gateway base URL.
  * Priority:
- * 1. NEXT_PUBLIC_API_BASE_URL env var (for production deployments)
- * 2. Smart detection from browser URL (for ROFL proxies)
- * 3. Gateway URL from config.json (for configured deployments)
- * 4. Fallback to localhost:3001 (for local development)
+ * 1. NEXT_PUBLIC_API_BASE_URL env var (for overrides)
+ * 2. Gateway URL from config.json
  */
 export function getApiBaseUrl(): string {
-  // Server-side: use env var or config
-  if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_BASE_URL || NETWORK.gateway || 'http://localhost:3001';
-  }
-
-  // Client-side: check if env var is set and not a placeholder
+  // Check env var first (works both server and client side)
   const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (envUrl && envUrl !== '__API_URL_PLACEHOLDER__') {
     return envUrl;
   }
 
-  // Smart fallback: derive from browser location (works for ROFL and proxies)
-  const { protocol, hostname, port } = window.location;
-
-  // ROFL-style proxy URL pattern (p3000 -> p3001)
-  if (hostname.includes('p3000')) {
-    return `${protocol}//${hostname.replace('p3000', 'p3001')}`;
-  }
-
-  // Local dev: port 3000 -> 3001
-  if (port === '3000') {
-    return `${protocol}//${hostname}:3001`;
-  }
-
-  // Use gateway from config if available
+  // Use gateway from config.json
   if (NETWORK.gateway) {
     return NETWORK.gateway;
   }
 
-  // Production: assume API is on same origin
-  return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
+  throw new Error('No gateway URL configured. Set NEXT_PUBLIC_API_BASE_URL or configure gateway in config.json');
 }

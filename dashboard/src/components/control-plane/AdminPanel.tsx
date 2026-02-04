@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
-import { PROVIDERS, Provider, toId, getReadContract, NETWORK, shortenAddress, getExplorerUrl } from '@/lib/contract';
+import { PROVIDERS, Provider, toId, getReadContract, NETWORK } from '@/lib/contract';
+import { CopyableAddress } from '@/components/ui/CopyableAddress';
 
 interface ContractInfo {
   owner: string;
@@ -201,7 +202,7 @@ export default function AdminPanel() {
           You are not the contract owner. Admin functions are disabled.
           {contractInfo?.owner && (
             <div className="mt-2">
-              Owner: <a href={getExplorerUrl(contractInfo.owner)} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline font-mono">{shortenAddress(contractInfo.owner)}</a>
+              Owner: <CopyableAddress address={contractInfo.owner} showExplorerLink />
             </div>
           )}
         </div>
@@ -225,19 +226,21 @@ export default function AdminPanel() {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Contract:</span>
-            <a href={getExplorerUrl(NETWORK.contract!)} target="_blank" rel="noopener noreferrer" className="font-mono text-teal-600 hover:underline">
-              {shortenAddress(NETWORK.contract!)}
-            </a>
+            <CopyableAddress address={NETWORK.contract!} showExplorerLink />
           </div>
           {contractInfo && (
             <>
               <div className="flex justify-between">
                 <span className="text-gray-500">Owner:</span>
-                <span className="font-mono text-gray-900">{shortenAddress(contractInfo.owner)}</span>
+                <CopyableAddress address={contractInfo.owner} />
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Gateway:</span>
-                <span className="font-mono text-gray-900">{contractInfo.gateway === '(not set)' ? contractInfo.gateway : shortenAddress(contractInfo.gateway)}</span>
+                {contractInfo.gateway === '(not set)' ? (
+                  <span className="font-mono text-gray-900">(not set)</span>
+                ) : (
+                  <CopyableAddress address={contractInfo.gateway} />
+                )}
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">ROFL Key Version:</span>
