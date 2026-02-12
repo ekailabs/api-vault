@@ -19,6 +19,9 @@ const config: HardhatUserConfig = {
       evmVersion: "paris",
     },
   },
+  sourcify: {
+    enabled: true,
+  },
   networks: {
     sapphire: {
       url: "https://sapphire.oasis.io",

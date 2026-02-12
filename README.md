@@ -10,6 +10,10 @@ Let your friends try Claude Opus from their favourite tool. Give a collaborator 
 
 Ekai stores your encrypted API keys on [Oasis Sapphire](https://oasisprotocol.org/sapphire). The [Ekai Gateway](https://github.com/ekailabs/ekai-gateway) runs in a TEE enclave - the only place where keys are ever decrypted - and makes API calls on behalf of anyone you authorize.
 
+## Watch It In Action
+
+[![Ekai Demo](https://img.youtube.com/vi/sLg9YmYtg64/0.jpg)](https://www.youtube.com/watch?v=sLg9YmYtg64)
+
 ## Why Ekai?
 
 | Without Ekai | With Ekai |
@@ -18,6 +22,12 @@ Ekai stores your encrypted API keys on [Oasis Sapphire](https://oasisprotocol.or
 | Friend screenshots your key, posts it | Impossible - no one ever sees the key |
 | No idea who used what | On-chain audit trail |
 | Revoke = regenerate key + update everywhere | Remove delegate = instant revoke |
+
+## Deployed Contract
+
+| Network | Address | Verified |
+|---------|---------|----------|
+| Sapphire Testnet | `0x1647A17be7Ad7A01C6657aC05FA10349E7f32268` | [Sourcify](https://repo.sourcify.dev/contracts/full_match/23295/0x1647A17be7Ad7A01C6657aC05FA10349E7f32268/) |
 
 ## How It Works
 
@@ -75,12 +85,6 @@ npx hardhat ekai-add-model --address 0x1647A17be7Ad7A01C6657aC05FA10349E7f32268 
 | xAI | `XAI` |
 | OpenRouter | `OPENROUTER` |
 | Groq | `GROQ` |
-
-## Deployed Contract
-
-| Network | Address |
-|---------|---------|
-| Sapphire Testnet | `0x1647A17be7Ad7A01C6657aC05FA10349E7f32268` |
 
 ## Architecture
 
