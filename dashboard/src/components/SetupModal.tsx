@@ -12,6 +12,7 @@ import {
   formatExpirationTime,
   copyToClipboard
 } from '@/lib/auth';
+import { NETWORK } from '@/lib/config';
 
 const TOKEN_TTL = 604800; // 7 days
 
@@ -119,17 +120,18 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
         throw new Error('No address');
       }
 
-      // Check and switch network if needed (Oasis Sapphire Testnet)
-      const chainId = 23295;
+      // Check and switch network if needed
+      const expectedChainId = parseInt(NETWORK.chainId, 16);
+      const hexChainId = '0x' + expectedChainId.toString(16);
       const currentChainId = await window.ethereum?.request({
         method: 'eth_chainId'
       }) as string;
 
-      if (parseInt(currentChainId, 16) !== chainId) {
+      if (parseInt(currentChainId, 16) !== expectedChainId) {
         try {
           await window.ethereum?.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x5aff' }]
+            params: [{ chainId: hexChainId }]
           });
         } catch (switchError: unknown) {
           const err = switchError as { code?: number };
@@ -137,11 +139,11 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
             await window.ethereum?.request({
               method: 'wallet_addEthereumChain',
               params: [{
-                chainId: '0x5aff',
-                chainName: 'Oasis Sapphire Testnet',
-                rpcUrls: ['https://testnet.sapphire.oasis.io'],
+                chainId: hexChainId,
+                chainName: NETWORK.name,
+                rpcUrls: [NETWORK.rpcUrl],
                 nativeCurrency: { name: 'ROSE', symbol: 'ROSE', decimals: 18 },
-                blockExplorerUrls: ['https://testnet.explorer.oasis.io']
+                blockExplorerUrls: NETWORK.explorer ? [NETWORK.explorer] : []
               }]
             });
           } else {

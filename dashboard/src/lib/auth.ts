@@ -4,11 +4,13 @@
  */
 
 import { getApiBaseUrl } from './api';
+import { NETWORK } from './config';
 
 // Re-export for backwards compatibility
 export { getApiBaseUrl };
 
-const OASIS_SAPPHIRE_TESTNET_CHAIN_ID = 23295; // 0x5aff
+// Dynamic chain ID from config.json (supports testnet + mainnet)
+const CHAIN_ID = parseInt(NETWORK.chainId, 16);
 
 /**
  * Connect to MetaMask wallet
@@ -49,7 +51,7 @@ export function createEIP712Message(
     domain: {
       name: 'Ekai Gateway',
       version: '1',
-      chainId: OASIS_SAPPHIRE_TESTNET_CHAIN_ID,
+      chainId: CHAIN_ID,
       // Note: No verifyingContract for off-chain signing
     },
     types: {
