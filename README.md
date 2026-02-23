@@ -27,6 +27,7 @@ Ekai stores your encrypted API keys on [Oasis Sapphire](https://oasisprotocol.or
 
 | Network | Address | Verified |
 |---------|---------|----------|
+| Sapphire Mainnet | `0x8212Da9695946dc97B89d2F7D2B47E623CE5d87b` | [Sourcify](https://repo.sourcify.dev/contracts/full_match/23294/0x8212Da9695946dc97B89d2F7D2B47E623CE5d87b/) |
 | Sapphire Testnet | `0x1647A17be7Ad7A01C6657aC05FA10349E7f32268` | [Sourcify](https://repo.sourcify.dev/contracts/full_match/23295/0x1647A17be7Ad7A01C6657aC05FA10349E7f32268/) |
 
 ## How It Works
@@ -63,16 +64,16 @@ npx hardhat test
 export PRIVATE_KEY="your-wallet-private-key"
 
 # Store your Anthropic key
-npx hardhat ekai-set-secret --address 0x1647A17be7Ad7A01C6657aC05FA10349E7f32268 \
-  --provider ANTHROPIC --secret "sk-ant-..." --network sapphire-testnet
+npx hardhat ekai-set-secret --address 0x8212Da9695946dc97B89d2F7D2B47E623CE5d87b \
+  --provider ANTHROPIC --secret "sk-ant-..." --network sapphire
 
 # Let a friend use it
-npx hardhat ekai-add-delegate --address 0x1647A17be7Ad7A01C6657aC05FA10349E7f32268 \
-  --delegate 0xFriendWalletAddress --network sapphire-testnet
+npx hardhat ekai-add-delegate --address 0x8212Da9695946dc97B89d2F7D2B47E623CE5d87b \
+  --delegate 0xFriendWalletAddress --network sapphire
 
 # (Optional) Only allow Claude Sonnet, not Opus
-npx hardhat ekai-add-model --address 0x1647A17be7Ad7A01C6657aC05FA10349E7f32268 \
-  --provider ANTHROPIC --model claude-sonnet-4-20250514 --network sapphire-testnet
+npx hardhat ekai-add-model --address 0x8212Da9695946dc97B89d2F7D2B47E623CE5d87b \
+  --provider ANTHROPIC --model claude-sonnet-4-20250514 --network sapphire
 ```
 
 ## Supported Providers

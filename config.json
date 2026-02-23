@@ -10,8 +10,8 @@
       "owner": null
     },
     "sapphire": {
-      "EkaiControlPlane": null,
-      "owner": null
+      "EkaiControlPlane": "0x8212Da9695946dc97B89d2F7D2B47E623CE5d87b",
+      "owner": "0x4Ec6E3b99E2E4422d6e64313F5AA2A8470DCDa2b"
     }
   },
   "networks": {
