@@ -37,7 +37,7 @@ export default function ControlPlanePage() {
             className="px-6 py-3 text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
             style={{ backgroundColor: '#004f4f' }}
           >
-            {isConnecting ? 'Connecting...' : 'Connect MetaMask'}
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
         </div>
       )}

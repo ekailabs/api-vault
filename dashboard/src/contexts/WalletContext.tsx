@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { BrowserProvider, JsonRpcSigner, Contract } from 'ethers';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { NETWORK, CONTRACT_ABI, getReadContract } from '@/lib/contract';
+import { sapphireChain } from '@/lib/privy-config';
 
 interface WalletContextType {
   address: string | null;
@@ -18,12 +20,22 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | null>(null);
 
+const DEFAULT_WALLET_CONTEXT: WalletContextType = {
+  address: null,
+  isOwner: false,
+  isConnecting: false,
+  contract: null,
+  signer: null,
+  connect: async () => {},
+  disconnect: () => {},
+  error: null,
+  clearError: () => {},
+};
+
 export function useWallet() {
   const context = useContext(WalletContext);
-  if (!context) {
-    throw new Error('useWallet must be used within a WalletProvider');
-  }
-  return context;
+  // Return defaults during SSR (before Privy/WalletProvider mounts)
+  return context ?? DEFAULT_WALLET_CONTEXT;
 }
 
 interface WalletProviderProps {
@@ -31,6 +43,9 @@ interface WalletProviderProps {
 }
 
 export function WalletProvider({ children }: WalletProviderProps) {
+  const { login: privyLogin, logout: privyLogout, authenticated, ready: privyReady } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
+
   const [address, setAddress] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -51,65 +66,33 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   }, []);
 
-  const updateAccount = useCallback(async (newAddress: string, newSigner: JsonRpcSigner) => {
-    setAddress(newAddress);
-    setSigner(newSigner);
-    const contractInstance = new Contract(NETWORK.contract!, CONTRACT_ABI, newSigner);
-    setContract(contractInstance);
-    await checkOwnership(newAddress);
+  const setupWallet = useCallback(async (wallet: (typeof wallets)[0]) => {
+    try {
+      // Switch to Sapphire chain
+      await wallet.switchChain(sapphireChain.id);
+
+      const ethereumProvider = await wallet.getEthereumProvider();
+      const provider = new BrowserProvider(ethereumProvider);
+      const newSigner = await provider.getSigner();
+      const addr = wallet.address;
+
+      setAddress(addr);
+      setSigner(newSigner);
+      const contractInstance = new Contract(NETWORK.contract!, CONTRACT_ABI, newSigner);
+      setContract(contractInstance);
+      await checkOwnership(addr);
+    } catch (e) {
+      console.error('Failed to setup wallet:', e);
+      setError(e instanceof Error ? e.message : 'Failed to setup wallet');
+    }
   }, [checkOwnership]);
 
   const connect = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setError('MetaMask not found. Please install MetaMask extension.');
-      return;
-    }
-
     setIsConnecting(true);
     setError(null);
 
     try {
-      // First switch to Sapphire network
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: NETWORK.chainId }],
-        });
-      } catch (switchError: unknown) {
-        // Chain not added, try to add it
-        const err = switchError as { code?: number };
-        if (err.code === 4902) {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: NETWORK.chainId,
-              chainName: NETWORK.name,
-              rpcUrls: [NETWORK.rpcUrl],
-              nativeCurrency: { name: 'ROSE', symbol: 'ROSE', decimals: 18 },
-              blockExplorerUrls: [NETWORK.explorer],
-            }],
-          });
-        } else {
-          throw switchError;
-        }
-      }
-
-      // Request permission - this prompts user to select/connect account
-      await window.ethereum.request({
-        method: 'wallet_requestPermissions',
-        params: [{ eth_accounts: {} }],
-      });
-
-      // Now get the connected accounts
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[];
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No account selected');
-      }
-
-      const provider = new BrowserProvider(window.ethereum);
-      const newSigner = await provider.getSigner();
-
-      await updateAccount(accounts[0], newSigner);
+      privyLogin();
     } catch (e: unknown) {
       const err = e as Error;
       console.error('Connect error:', err);
@@ -117,74 +100,35 @@ export function WalletProvider({ children }: WalletProviderProps) {
     } finally {
       setIsConnecting(false);
     }
-  }, [updateAccount]);
+  }, [privyLogin]);
 
   const disconnect = useCallback(() => {
+    privyLogout();
     setAddress(null);
     setIsOwner(false);
     setContract(null);
     setSigner(null);
     setError(null);
-  }, []);
+  }, [privyLogout]);
 
-  // Check if wallet is already connected on mount
+  // Auto-setup when Privy authenticates and wallets become available
   useEffect(() => {
-    const checkExistingConnection = async () => {
-      if (typeof window === 'undefined' || !window.ethereum) return;
+    if (!privyReady || !walletsReady) return;
 
-      try {
-        // Check if already connected (doesn't prompt user)
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[];
-        if (accounts && accounts.length > 0) {
-          const provider = new BrowserProvider(window.ethereum);
-          const newSigner = await provider.getSigner();
-          await updateAccount(accounts[0], newSigner);
-        }
-      } catch (e) {
-        console.error('Failed to check existing connection:', e);
+    if (authenticated && wallets.length > 0) {
+      // Use the first available wallet (embedded or external)
+      const wallet = wallets[0];
+      if (wallet.address !== address) {
+        setupWallet(wallet);
       }
-    };
-
-    checkExistingConnection();
-  }, [updateAccount]);
-
-  // Set up MetaMask event listeners
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.ethereum) return;
-
-    const handleAccountsChanged = (...args: unknown[]) => {
-      const accounts = args[0] as string[];
-      if (!accounts || accounts.length === 0) {
-        disconnect();
-      } else if (address && accounts[0].toLowerCase() !== address.toLowerCase()) {
-        // Account changed - reconnect with new account
-        const reconnect = async () => {
-          try {
-            const provider = new BrowserProvider(window.ethereum!);
-            const newSigner = await provider.getSigner();
-            await updateAccount(accounts[0], newSigner);
-          } catch (e) {
-            console.error('Failed to reconnect:', e);
-            disconnect();
-          }
-        };
-        reconnect();
-      }
-    };
-
-    const handleChainChanged = () => {
-      // Reload to reset state on chain change
-      window.location.reload();
-    };
-
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', handleChainChanged);
-
-    return () => {
-      window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
-      window.ethereum?.removeListener('chainChanged', handleChainChanged);
-    };
-  }, [disconnect, address, updateAccount]);
+    } else if (!authenticated && address) {
+      // User logged out of Privy
+      setAddress(null);
+      setIsOwner(false);
+      setContract(null);
+      setSigner(null);
+    }
+  }, [authenticated, wallets, privyReady, walletsReady, address, setupWallet]);
 
   return (
     <WalletContext.Provider value={{
@@ -201,15 +145,4 @@ export function WalletProvider({ children }: WalletProviderProps) {
       {children}
     </WalletContext.Provider>
   );
-}
-
-// Declare ethereum on window for TypeScript
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
-  }
 }

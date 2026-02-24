@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useCopy } from '@/hooks/useCopy';
 import { getApiBaseUrl } from '@/lib/api';
 
-const API_BASE_URL = getApiBaseUrl();
+function getBaseUrl() { try { return getApiBaseUrl(); } catch { return ''; } }
 const DASHBOARD_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
 interface FirstRunModalProps {
@@ -56,7 +56,7 @@ export default function FirstRunModal({ open, onClose, onRefresh, children }: Fi
         </div>
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <InfoCard label="Gateway base URL" value={API_BASE_URL} />
+          <InfoCard label="Gateway base URL" value={getBaseUrl()} />
           <InfoCard label="Dashboard URL" value={DASHBOARD_URL} />
         </div>
 

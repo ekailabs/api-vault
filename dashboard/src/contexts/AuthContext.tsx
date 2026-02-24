@@ -13,7 +13,6 @@ export interface AuthState {
 }
 
 export interface AuthContextType extends AuthState {
-  connectWallet: () => Promise<string>;
   login: (address: string, expiration: number, signature: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => boolean;
@@ -73,39 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initializeAuth();
   }, []);
-
-  const connectWallet = async (): Promise<string> => {
-    try {
-      if (!window.ethereum) {
-        throw new Error('MetaMask is not installed');
-      }
-
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts'
-      }) as string[];
-
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No accounts returned from MetaMask');
-      }
-
-      const address = accounts[0];
-      setState(prev => ({
-        ...prev,
-        isConnected: true,
-        error: null
-      }));
-
-      return address;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
-      setState(prev => ({
-        ...prev,
-        error: errorMessage,
-        isLoading: false
-      }));
-      throw err;
-    }
-  };
 
   const login = async (address: string, expiration: number, signature: string): Promise<void> => {
     try {
@@ -191,7 +157,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextType = {
     ...state,
-    connectWallet,
     login,
     logout,
     checkAuth
@@ -207,4 +172,3 @@ export function useAuth(): AuthContextType {
   }
   return context;
 }
-

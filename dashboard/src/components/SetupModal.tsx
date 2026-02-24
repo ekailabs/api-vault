@@ -1,18 +1,18 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService, getApiBaseUrl } from '@/lib/api';
 import { isAddress } from 'ethers';
 import {
-  connectMetaMask,
   createEIP712Message,
   signMessage,
   formatTokenExport,
   formatExpirationTime,
   copyToClipboard
 } from '@/lib/auth';
-import { NETWORK } from '@/lib/config';
+import { sapphireChain } from '@/lib/privy-config';
 
 const TOKEN_TTL = 604800; // 7 days
 
@@ -37,6 +37,8 @@ interface SetupModalProps {
 
 export default function SetupModal({ open, onClose }: SetupModalProps) {
   const auth = useAuth();
+  const { login: privyLogin, ready: privyReady } = usePrivy();
+  const { wallets } = useWallets();
   const [step, setStep] = useState<'connect' | 'sign' | 'preferences' | 'success'>('connect');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,15 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
   const [addressError, setAddressError] = useState<string | null>(null);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [customModelInput, setCustomModelInput] = useState('');
+
+  // Watch for wallets to appear after Privy login
+  const wallet = wallets[0];
+  useEffect(() => {
+    if (wallet && step === 'connect' && !address) {
+      setAddress(wallet.address);
+      setStep('sign');
+    }
+  }, [wallet, step, address]);
 
   // Load preferences when entering preferences step
   const loadPreferences = useCallback(async () => {
@@ -101,9 +112,7 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
     try {
       setError(null);
       setLoading(true);
-      const addr = await connectMetaMask();
-      setAddress(addr);
-      setStep('sign');
+      privyLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect');
     } finally {
@@ -116,47 +125,19 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
       setError(null);
       setLoading(true);
 
-      if (!address) {
-        throw new Error('No address');
+      if (!wallet || !address) {
+        throw new Error('No wallet connected');
       }
 
-      // Check and switch network if needed
-      const expectedChainId = parseInt(NETWORK.chainId, 16);
-      const hexChainId = '0x' + expectedChainId.toString(16);
-      const currentChainId = await window.ethereum?.request({
-        method: 'eth_chainId'
-      }) as string;
-
-      if (parseInt(currentChainId, 16) !== expectedChainId) {
-        try {
-          await window.ethereum?.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: hexChainId }]
-          });
-        } catch (switchError: unknown) {
-          const err = switchError as { code?: number };
-          if (err.code === 4902) {
-            await window.ethereum?.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: hexChainId,
-                chainName: NETWORK.name,
-                rpcUrls: [NETWORK.rpcUrl],
-                nativeCurrency: { name: 'ROSE', symbol: 'ROSE', decimals: 18 },
-                blockExplorerUrls: NETWORK.explorer ? [NETWORK.explorer] : []
-              }]
-            });
-          } else {
-            throw switchError;
-          }
-        }
-      }
+      // Switch to Sapphire chain
+      await wallet.switchChain(sapphireChain.id);
 
       const now = Math.floor(Date.now() / 1000);
       const expiration = now + TOKEN_TTL;
 
       const typedData = createEIP712Message(address, expiration);
-      const signature = await signMessage(typedData);
+      const provider = await wallet.getEthereumProvider();
+      const signature = await signMessage(typedData, provider);
 
       await auth.login(address, expiration, signature);
       setStep('preferences');
@@ -281,7 +262,7 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
 
               <button
                 onClick={handleConnect}
-                disabled={loading}
+                disabled={loading || !privyReady}
                 className="w-full py-3 px-4 rounded-lg font-semibold text-white disabled:opacity-60 transition-colors"
                 style={{ backgroundColor: '#004f4f' }}
               >
@@ -291,7 +272,7 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
               <div className="mt-6 bg-gray-50 rounded-lg p-4">
                 <p className="text-sm font-medium text-gray-700 mb-2">How it works:</p>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
-                  <li>Connect your wallet</li>
+                  <li>Connect your wallet or sign in with email</li>
                   <li>Sign a message to verify ownership</li>
                   <li>Get an API token (valid 7 days)</li>
                   <li>Use with Claude Code or Codex</li>

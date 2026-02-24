@@ -1,5 +1,5 @@
 /**
- * Authentication utilities for MetaMask Web3 login
+ * Authentication utilities for Web3 login
  * Handles EIP-712 message signing and token management
  */
 
@@ -11,33 +11,6 @@ export { getApiBaseUrl };
 
 // Dynamic chain ID from config.json (supports testnet + mainnet)
 const CHAIN_ID = parseInt(NETWORK.chainId, 16);
-
-/**
- * Connect to MetaMask wallet
- * @returns Promise with connected address
- */
-export async function connectMetaMask(): Promise<string> {
-  if (!window.ethereum) {
-    throw new Error('MetaMask is not installed');
-  }
-
-  try {
-    const accounts = await window.ethereum.request({
-      method: 'eth_requestAccounts'
-    }) as string[];
-
-    if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts available');
-    }
-
-    return accounts[0];
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('user rejected')) {
-      throw new Error('User rejected MetaMask connection');
-    }
-    throw error;
-  }
-}
 
 /**
  * Create EIP-712 typed data structure for signing
@@ -73,16 +46,17 @@ export function createEIP712Message(
   };
 }
 
-/**
- * Request signature from MetaMask for EIP-712 typed data
- */
-export async function signMessage(typedData: EIP712TypedData): Promise<string> {
-  if (!window.ethereum) {
-    throw new Error('MetaMask is not installed');
-  }
+/** EIP-1193 compatible provider (subset we need) */
+export interface EIP1193Provider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
 
+/**
+ * Request signature via EIP-712 typed data using the given provider
+ */
+export async function signMessage(typedData: EIP712TypedData, provider: EIP1193Provider): Promise<string> {
   try {
-    const signature = await window.ethereum.request({
+    const signature = await provider.request({
       method: 'eth_signTypedData_v4',
       params: [typedData.message.address, JSON.stringify(typedData)]
     }) as string;

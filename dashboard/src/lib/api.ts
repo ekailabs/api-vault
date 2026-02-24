@@ -2,8 +2,14 @@
 export { getApiBaseUrl } from './config';
 import { getApiBaseUrl } from './config';
 
-// Cached API base URL for performance
-const API_BASE_URL = getApiBaseUrl();
+// Lazy-cached API base URL (deferred to avoid throwing during SSR prerender)
+let _apiBaseUrl: string | null = null;
+function getBaseUrl(): string {
+  if (!_apiBaseUrl) {
+    _apiBaseUrl = getApiBaseUrl();
+  }
+  return _apiBaseUrl;
+}
 // Types based on your backend response
 export interface UsageRecord {
   id: number;
@@ -87,7 +93,7 @@ export interface UserPreferences {
 export const apiService = {
   // Fetch usage data
   async getUsage(fromDate?: Date, toDate?: Date): Promise<UsageResponse> {
-    let url = `${API_BASE_URL}/usage`;
+    let url = `${getBaseUrl()}/usage`;
 
     if (fromDate || toDate) {
       const params = new URLSearchParams();
@@ -114,7 +120,7 @@ export const apiService = {
 
   // Check health
   async getHealth() {
-    const response = await fetch(`${API_BASE_URL}/health`);
+    const response = await fetch(`${getBaseUrl()}/health`);
     if (!response.ok) {
       throw new Error(`Failed to fetch health: ${response.statusText}`);
     }
@@ -127,7 +133,7 @@ export const apiService = {
     if (toDate) params.append('endTime', toDate.toISOString());
     params.append('format', 'csv');
 
-    const url = `${API_BASE_URL}/usage?${params.toString()}`;
+    const url = `${getBaseUrl()}/usage?${params.toString()}`;
     const response = await fetch(url, {
       headers: getAuthHeaders()
     });
@@ -154,7 +160,7 @@ export const apiService = {
   },
 
   async getConfigStatus(): Promise<ConfigStatusResponse> {
-    const response = await fetch(`${API_BASE_URL}/config/status`);
+    const response = await fetch(`${getBaseUrl()}/config/status`);
     if (!response.ok) {
       throw new Error(`Failed to fetch config status: ${response.statusText}`);
     }
@@ -169,7 +175,7 @@ export const apiService = {
     if (params?.limit) searchParams.append('limit', String(params.limit));
     if (params?.offset) searchParams.append('offset', String(params.offset));
 
-    const url = `${API_BASE_URL}/v1/models${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const url = `${getBaseUrl()}/v1/models${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     // No auth required - this is a public endpoint
     const response = await fetch(url);
     if (!response.ok) {
@@ -192,7 +198,7 @@ export const apiService = {
   },
 
   async getBudget(): Promise<BudgetResponse> {
-    const response = await fetch(`${API_BASE_URL}/budget`, {
+    const response = await fetch(`${getBaseUrl()}/budget`, {
       headers: getAuthHeaders()
     });
     if (!response.ok) {
@@ -205,7 +211,7 @@ export const apiService = {
   },
 
   async updateBudget(payload: { amountUsd: number | null; alertOnly?: boolean }): Promise<BudgetResponse> {
-    const response = await fetch(`${API_BASE_URL}/budget`, {
+    const response = await fetch(`${getBaseUrl()}/budget`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -225,7 +231,7 @@ export const apiService = {
   },
 
   async getPreferences(): Promise<UserPreferences> {
-    const response = await fetch(`${API_BASE_URL}/user/preferences`, {
+    const response = await fetch(`${getBaseUrl()}/user/preferences`, {
       headers: getAuthHeaders()
     });
     if (!response.ok) {
@@ -238,7 +244,7 @@ export const apiService = {
   },
 
   async updatePreferences(payload: { api_address?: string; model_preferences?: string[] }): Promise<UserPreferences> {
-    const response = await fetch(`${API_BASE_URL}/user/preferences`, {
+    const response = await fetch(`${getBaseUrl()}/user/preferences`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

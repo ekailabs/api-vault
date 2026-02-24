@@ -12,5 +12,5 @@ export const CHART_COLORS = [
 ];
 
 export const API_CONFIG = {
-  BASE_URL: getApiBaseUrl(),
+  get BASE_URL() { return getApiBaseUrl(); },
 } as const;
