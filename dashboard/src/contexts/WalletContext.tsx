@@ -5,6 +5,7 @@ import { BrowserProvider, JsonRpcSigner, Contract } from 'ethers';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { NETWORK, CONTRACT_ABI, getReadContract } from '@/lib/contract';
 import { sapphireChain } from '@/lib/privy-config';
+import { useDrip, DripStatus } from '@/hooks/useDrip';
 
 interface WalletContextType {
   address: string | null;
@@ -16,6 +17,7 @@ interface WalletContextType {
   disconnect: () => void;
   error: string | null;
   clearError: () => void;
+  dripStatus: DripStatus;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -30,6 +32,7 @@ const DEFAULT_WALLET_CONTEXT: WalletContextType = {
   disconnect: () => {},
   error: null,
   clearError: () => {},
+  dripStatus: 'idle',
 };
 
 export function useWallet() {
@@ -52,6 +55,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [contract, setContract] = useState<Contract | null>(null);
   const [signer, setSigner] = useState<JsonRpcSigner | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { dripStatus, requestDrip } = useDrip();
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -81,11 +85,14 @@ export function WalletProvider({ children }: WalletProviderProps) {
       const contractInstance = new Contract(NETWORK.contract!, CONTRACT_ABI, newSigner);
       setContract(contractInstance);
       await checkOwnership(addr);
+
+      // Fire-and-forget: fund new wallets with gas
+      requestDrip(addr);
     } catch (e) {
       console.error('Failed to setup wallet:', e);
       setError(e instanceof Error ? e.message : 'Failed to setup wallet');
     }
-  }, [checkOwnership]);
+  }, [checkOwnership, requestDrip]);
 
   const connect = useCallback(async () => {
     setIsConnecting(true);
@@ -141,6 +148,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       disconnect,
       error,
       clearError,
+      dripStatus,
     }}>
       {children}
     </WalletContext.Provider>
