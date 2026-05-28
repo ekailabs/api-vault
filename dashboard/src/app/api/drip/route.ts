@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAddress, JsonRpcProvider, Wallet, parseEther } from 'ethers';
+import { formatEther, isAddress, JsonRpcProvider, Wallet, parseEther } from 'ethers';
 import { SAPPHIRE_TX_OPTIONS } from '@/lib/contract';
 import { getRpcUrl } from '@/lib/server-config';
 
 // --- Configuration -----------------------------------------------------------
 
 const DRIP_PRIVATE_KEY = process.env.DRIP_PRIVATE_KEY;
-const DRIP_AMOUNT = process.env.DRIP_AMOUNT || '0.05'; // ROSE
+const CONFIGURED_DRIP_AMOUNT = process.env.DRIP_AMOUNT
+  ? parseEther(process.env.DRIP_AMOUNT)
+  : BigInt(0);
+const MIN_TARGET_BALANCE = parseEther('0.5'); // ROSE
+const TARGET_BALANCE = CONFIGURED_DRIP_AMOUNT > MIN_TARGET_BALANCE
+  ? CONFIGURED_DRIP_AMOUNT
+  : MIN_TARGET_BALANCE;
+const FUNDER_GAS_BUFFER = parseEther('0.05'); // ROSE
 
 // Minimum balance the recipient must already have to skip the drip
-const MIN_BALANCE = parseEther(DRIP_AMOUNT);
+const MIN_BALANCE = TARGET_BALANCE;
 
 // --- In-memory state (resets on server restart) ------------------------------
 
@@ -82,9 +89,9 @@ export async function POST(req: NextRequest) {
   // 5. Funder balance check
   const funder = new Wallet(DRIP_PRIVATE_KEY, provider);
   const funderBalance = await funder.provider!.getBalance(funder.address);
-  const dripWei = parseEther(DRIP_AMOUNT);
+  const dripWei = TARGET_BALANCE - balance;
 
-  if (funderBalance < dripWei * BigInt(2)) {
+  if (funderBalance < dripWei + FUNDER_GAS_BUFFER) {
     // Keep a buffer so funder can cover gas
     return NextResponse.json(
       { error: 'Funder wallet low on funds' },
@@ -103,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       txHash: tx.hash,
-      amount: DRIP_AMOUNT,
+      amount: formatEther(dripWei),
     });
   } catch (err) {
     console.error('Drip tx failed:', err);

@@ -60,17 +60,30 @@ export default function SecretsPanel() {
   }, [refreshSecrets]);
 
   const requestGasTopUp = useCallback(async () => {
-    if (!address) return;
-
-    try {
-      await fetch('/api/drip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      });
-    } catch {
-      // If the faucet is unavailable, let the wallet transaction surface the real error.
+    if (!address) {
+      throw new Error('Connect a wallet before saving a secret.');
     }
+
+    const res = await fetch('/api/drip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    });
+
+    if (res.ok || res.status === 409) {
+      // Give the wallet/RPC view a moment to observe a just-confirmed top-up.
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return;
+    }
+
+    let message = 'Could not auto-fund wallet. Add ROSE manually and try again.';
+    try {
+      const body = await res.json();
+      message = body.error || message;
+    } catch {
+      // Keep the default message if the response is not JSON.
+    }
+    throw new Error(message);
   }, [address]);
 
   const handleSetSecret = async () => {
