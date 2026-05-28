@@ -128,7 +128,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Wallet Connection Status - shown on both tabs */}
+              {/* Auth status - shown on both tabs */}
               {wallet.address ? (
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
@@ -139,7 +139,7 @@ export default function Dashboard() {
                     <button
                       onClick={wallet.disconnect}
                       className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                      title="Disconnect wallet"
+                      title="Disconnect"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -153,7 +153,7 @@ export default function Dashboard() {
                   disabled={wallet.isConnecting}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                 >
-                  {wallet.isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                  {wallet.isConnecting ? 'Signing in...' : 'Sign in'}
                 </button>
               )}
 
@@ -190,7 +190,7 @@ export default function Dashboard() {
                   className="px-5 py-2 text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: '#004f4f' }}
                 >
-                  Use Gateway
+                  Get Started
                 </button>
               )}
             </div>

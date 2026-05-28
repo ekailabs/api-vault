@@ -206,7 +206,7 @@ export default function SecretsPanel() {
           </button>
         </div>
         {!address ? (
-          <p className="text-gray-500">Connect wallet to view</p>
+          <p className="text-gray-500">Sign in to view</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {PROVIDERS.map(prov => (

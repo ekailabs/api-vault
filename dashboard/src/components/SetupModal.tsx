@@ -253,11 +253,11 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
         </div>
 
         <div className="p-6">
-          {/* Step 1: Connect Wallet */}
+          {/* Step 1: Sign in */}
           {step === 'connect' && (
             <>
               <p className="text-gray-600 mb-6">
-                Connect your wallet to authorize LLM inference through Ekai Gateway.
+                Sign in to authorize LLM inference through Ekai Gateway.
               </p>
 
               <button
@@ -266,13 +266,13 @@ export default function SetupModal({ open, onClose }: SetupModalProps) {
                 className="w-full py-3 px-4 rounded-lg font-semibold text-white disabled:opacity-60 transition-colors"
                 style={{ backgroundColor: '#004f4f' }}
               >
-                {loading ? 'Connecting...' : 'Connect Wallet'}
+                {loading ? 'Signing in...' : 'Sign in'}
               </button>
 
               <div className="mt-6 bg-gray-50 rounded-lg p-4">
                 <p className="text-sm font-medium text-gray-700 mb-2">How it works:</p>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
-                  <li>Connect your wallet or sign in with email</li>
+                  <li>Sign in with wallet, email, or Google</li>
                   <li>Sign a message to verify ownership</li>
                   <li>Get an API token (valid 7 days)</li>
                   <li>Use with Claude Code or Codex</li>

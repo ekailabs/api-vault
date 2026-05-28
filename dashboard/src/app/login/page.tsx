@@ -105,10 +105,10 @@ export default function LoginPage() {
         <div className="bg-white rounded-lg shadow-lg p-8">
           {step === 'connect' && (
             <>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Authorize Your Wallet</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Sign in to Ekai Gateway</h2>
               <p className="text-gray-600 mb-6">
-                Sign with your Web3 wallet to authorize LLM inference. <br />
-                <span className="text-sm">We only verify you own this wallet address - no private keys or transactions.</span>
+                Sign in with wallet, email, or Google to authorize LLM inference. <br />
+                <span className="text-sm">If a wallet signature is required, we only verify ownership - no private keys or transactions.</span>
               </p>
 
               <button
@@ -116,13 +116,13 @@ export default function LoginPage() {
                 disabled={loading || !privyReady}
                 className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 mb-6"
               >
-                {loading ? 'Connecting...' : 'Connect Wallet'}
+                {loading ? 'Signing in...' : 'Sign in'}
               </button>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm font-semibold text-blue-900 mb-2">How it works:</p>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
-                  <li>Connect your wallet or sign in with email</li>
+                  <li>Sign in with wallet, email, or Google</li>
                   <li>Sign a message to prove wallet ownership</li>
                   <li>Get an API token valid for 7 days</li>
                   <li>Use with Claude Code or Codex for LLM inference</li>

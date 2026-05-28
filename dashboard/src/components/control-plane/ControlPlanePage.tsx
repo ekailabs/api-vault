@@ -33,10 +33,10 @@ export default function ControlPlanePage() {
 
   return (
     <div className="space-y-6">
-      {/* Wallet Connection Banner */}
+      {/* Sign-in Banner */}
       {!address && (
         <div className="bg-white p-6 rounded-lg border text-center">
-          <p className="text-gray-600 mb-4">Connect your wallet to interact with the Ekai Control Plane smart contract</p>
+          <p className="text-gray-600 mb-4">Sign in to interact with the Ekai Control Plane smart contract</p>
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm cursor-pointer" onClick={clearError}>
               {error}
@@ -48,7 +48,7 @@ export default function ControlPlanePage() {
             className="px-6 py-3 text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
             style={{ backgroundColor: '#004f4f' }}
           >
-            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+            {isConnecting ? 'Signing in...' : 'Sign in'}
           </button>
         </div>
       )}

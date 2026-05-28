@@ -193,7 +193,7 @@ export default function AdminPanel() {
 
       {!address && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700">
-          Connect your wallet to see if you have admin access.
+          Sign in to see if you have admin access.
         </div>
       )}
 
