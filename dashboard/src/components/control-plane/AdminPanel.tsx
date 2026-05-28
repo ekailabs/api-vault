@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
-import { PROVIDERS, Provider, toId, getReadContract, NETWORK } from '@/lib/contract';
+import { PROVIDERS, Provider, toId, getReadContract, NETWORK, SAPPHIRE_TX_OPTIONS } from '@/lib/contract';
 import { CopyableAddress } from '@/components/ui/CopyableAddress';
 
 interface ContractInfo {
@@ -89,7 +89,7 @@ export default function AdminPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.setGateway(gatewayAddr);
+      const tx = await contract.setGateway(gatewayAddr, SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setGatewayAddr('');
       setSuccess('Gateway set');
@@ -108,7 +108,7 @@ export default function AdminPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.setRoflKey(roflPubkey || '0x', roflVersion, roflActive);
+      const tx = await contract.setRoflKey(roflPubkey || '0x', roflVersion, roflActive, SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setSuccess('ROFL Key set');
       await refreshInfo();
@@ -126,7 +126,7 @@ export default function AdminPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.addProvider(toId(selectedProvider));
+      const tx = await contract.addProvider(toId(selectedProvider), SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setSuccess(`Provider ${selectedProvider} added`);
       await refreshProviders();
@@ -144,7 +144,7 @@ export default function AdminPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.removeProvider(toId(selectedProvider));
+      const tx = await contract.removeProvider(toId(selectedProvider), SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setSuccess(`Provider ${selectedProvider} removed`);
       await refreshProviders();
@@ -164,7 +164,7 @@ export default function AdminPanel() {
     try {
       for (const name of PROVIDERS) {
         if (!providers[name]) {
-          const tx = await contract.addProvider(toId(name));
+          const tx = await contract.addProvider(toId(name), SAPPHIRE_TX_OPTIONS);
           await tx.wait();
         }
       }

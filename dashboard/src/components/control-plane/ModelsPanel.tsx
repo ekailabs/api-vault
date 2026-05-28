@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
-import { PROVIDERS, Provider, toId, getReadContract } from '@/lib/contract';
+import { PROVIDERS, Provider, toId, getReadContract, SAPPHIRE_TX_OPTIONS } from '@/lib/contract';
 
 export default function ModelsPanel() {
   const { address, contract } = useWallet();
@@ -57,7 +57,7 @@ export default function ModelsPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.addAllowedModel(toId(addModelProvider), toId(addModelName));
+      const tx = await contract.addAllowedModel(toId(addModelProvider), toId(addModelName), SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setAddModelName('');
       setSuccess(`Model restriction added for ${addModelProvider}`);
@@ -75,7 +75,7 @@ export default function ModelsPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.removeAllowedModel(toId(removeModelProvider), toId(removeModelName));
+      const tx = await contract.removeAllowedModel(toId(removeModelProvider), toId(removeModelName), SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setRemoveModelName('');
       setSuccess('Model restriction removed');

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
-import { getReadContract } from '@/lib/contract';
+import { getReadContract, SAPPHIRE_TX_OPTIONS } from '@/lib/contract';
 
 export default function DelegatesPanel() {
   const { address, contract } = useWallet();
@@ -27,7 +27,7 @@ export default function DelegatesPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.addDelegate(addDelegateAddr);
+      const tx = await contract.addDelegate(addDelegateAddr, SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setAddDelegateAddr('');
       setSuccess('Delegate added - they can now access your secrets');
@@ -49,7 +49,7 @@ export default function DelegatesPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.removeDelegate(removeDelegateAddr);
+      const tx = await contract.removeDelegate(removeDelegateAddr, SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setRemoveDelegateAddr('');
       setSuccess('Delegate removed');

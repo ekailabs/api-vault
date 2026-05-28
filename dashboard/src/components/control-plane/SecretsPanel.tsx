@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
-import { PROVIDERS, Provider, toId, getReadContract } from '@/lib/contract';
+import { PROVIDERS, Provider, toId, getReadContract, SAPPHIRE_TX_OPTIONS } from '@/lib/contract';
 import { encryptSecret, hexToBytes } from '@/lib/encryption';
 
 interface RoflKeyState {
@@ -77,7 +77,7 @@ export default function SecretsPanel() {
       const ciphertext = encryptSecret(secretValue, pubkeyBytes);
 
       // Store encrypted secret on-chain
-      const tx = await contract.setSecret(toId(secretProvider), ciphertext);
+      const tx = await contract.setSecret(toId(secretProvider), ciphertext, SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setSecretValue('');
       setSuccess(`Secret encrypted and saved for ${secretProvider}`);
@@ -96,7 +96,7 @@ export default function SecretsPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const tx = await contract.revokeSecret(toId(revokeProvider));
+      const tx = await contract.revokeSecret(toId(revokeProvider), SAPPHIRE_TX_OPTIONS);
       await tx.wait();
       setSuccess(`Secret revoked for ${revokeProvider}`);
       await refreshSecrets();

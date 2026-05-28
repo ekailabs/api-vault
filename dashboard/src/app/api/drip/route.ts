@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAddress, JsonRpcProvider, Wallet, parseEther } from 'ethers';
+import { SAPPHIRE_TX_OPTIONS } from '@/lib/contract';
 import { getRpcUrl } from '@/lib/server-config';
 
 // --- Configuration -----------------------------------------------------------
 
 const DRIP_PRIVATE_KEY = process.env.DRIP_PRIVATE_KEY;
-const DRIP_AMOUNT = process.env.DRIP_AMOUNT || '0.01'; // ROSE
+const DRIP_AMOUNT = process.env.DRIP_AMOUNT || '0.05'; // ROSE
 
 // Minimum balance the recipient must already have to skip the drip
 const MIN_BALANCE = parseEther(DRIP_AMOUNT);
@@ -110,6 +111,7 @@ export async function POST(req: NextRequest) {
     const tx = await funder.sendTransaction({
       to: address,
       value: dripWei,
+      ...SAPPHIRE_TX_OPTIONS,
     });
 
     funded.add(normalized);

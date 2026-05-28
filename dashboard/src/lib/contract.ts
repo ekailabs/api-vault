@@ -4,6 +4,11 @@ import { NETWORKS, CONTRACTS, DEFAULT_NETWORK, NETWORK as NETWORK_CONFIG } from 
 export const PROVIDERS = ['ANTHROPIC', 'OPENAI', 'GOOGLE', 'XAI', 'OPENROUTER', 'GROQ'] as const;
 export type Provider = typeof PROVIDERS[number];
 
+export const SAPPHIRE_TX_OPTIONS = {
+  type: 0,
+  gasPrice: BigInt('100000000000'),
+} as const;
+
 // Re-export for backwards compatibility
 export { NETWORKS, DEFAULT_NETWORK };
 
