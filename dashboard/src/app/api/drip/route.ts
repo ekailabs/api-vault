@@ -13,9 +13,6 @@ const MIN_BALANCE = parseEther(DRIP_AMOUNT);
 
 // --- In-memory state (resets on server restart) ------------------------------
 
-/** Addresses that have already been funded this process lifetime. */
-const funded = new Set<string>();
-
 /** IP → timestamps of recent requests (sliding window). */
 const ipHits = new Map<string, number[]>();
 const RATE_LIMIT = 5; // requests
@@ -66,34 +63,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
   }
 
-  const normalized = address.toLowerCase();
-
   // 3. Rate limit by IP
   if (isRateLimited(getClientIp(req))) {
     return NextResponse.json({ error: 'Rate limited' }, { status: 429 });
   }
 
-  // 4. Already funded this session?
-  if (funded.has(normalized)) {
-    return NextResponse.json(
-      { error: 'Already funded', address },
-      { status: 409 },
-    );
-  }
-
-  // 5. On-chain checks
+  // 4. On-chain checks
   const provider = new JsonRpcProvider(getRpcUrl());
   const balance = await provider.getBalance(address);
 
   if (balance >= MIN_BALANCE) {
-    funded.add(normalized);
     return NextResponse.json(
       { error: 'Already has sufficient balance', address },
       { status: 409 },
     );
   }
 
-  // 6. Funder balance check
+  // 5. Funder balance check
   const funder = new Wallet(DRIP_PRIVATE_KEY, provider);
   const funderBalance = await funder.provider!.getBalance(funder.address);
   const dripWei = parseEther(DRIP_AMOUNT);
@@ -106,15 +92,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 7. Send ROSE
+  // 6. Send ROSE
   try {
     const tx = await funder.sendTransaction({
       to: address,
       value: dripWei,
       ...SAPPHIRE_TX_OPTIONS,
     });
-
-    funded.add(normalized);
+    await tx.wait();
 
     return NextResponse.json({
       txHash: tx.hash,

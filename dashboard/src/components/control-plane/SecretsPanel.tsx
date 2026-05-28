@@ -59,6 +59,20 @@ export default function SecretsPanel() {
     refreshSecrets();
   }, [refreshSecrets]);
 
+  const requestGasTopUp = useCallback(async () => {
+    if (!address) return;
+
+    try {
+      await fetch('/api/drip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+    } catch {
+      // If the faucet is unavailable, let the wallet transaction surface the real error.
+    }
+  }, [address]);
+
   const handleSetSecret = async () => {
     if (!contract || !secretValue) return;
     setLoading(true);
@@ -71,6 +85,8 @@ export default function SecretsPanel() {
         setLoading(false);
         return;
       }
+
+      await requestGasTopUp();
 
       // Encrypt secret with gateway's public key
       const pubkeyBytes = hexToBytes(roflKey.pubkey);
