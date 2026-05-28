@@ -9,6 +9,7 @@ import SetupModal from '@/components/SetupModal';
 import PreferencesModal from '@/components/PreferencesModal';
 import ControlPlanePage from '@/components/control-plane/ControlPlanePage';
 import ModelCatalog from '@/components/ModelCatalog';
+import BackendStatusButton from '@/components/BackendStatusButton';
 import { useUsageData } from '@/hooks/useUsageData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
@@ -62,8 +63,8 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-white border-b" style={{ borderColor: '#e5e5e5' }}>
         <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4 lg:gap-8">
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900">Ekai Gateway</h1>
               </div>
@@ -101,7 +102,9 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <BackendStatusButton />
+
               {/* Dashboard-specific: Live/Demo Toggle */}
               {mainTab === 'dashboard' && (
                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
@@ -128,8 +131,8 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Auth status - shown on both tabs */}
-              {wallet.address ? (
+              {/* Connected wallet status */}
+              {wallet.address && (
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg">
                     <span className="w-2 h-2 bg-green-500 rounded-full"></span>
@@ -147,14 +150,6 @@ export default function Dashboard() {
                     </button>
                   )}
                 </div>
-              ) : (
-                <button
-                  onClick={wallet.connect}
-                  disabled={wallet.isConnecting}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                >
-                  {wallet.isConnecting ? 'Signing in...' : 'Sign in'}
-                </button>
               )}
 
               {/* Auth Controls - shown on both tabs */}
