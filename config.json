@@ -1,5 +1,5 @@
 {
-  "defaultNetwork": "sapphire-testnet",
+  "defaultNetwork": "sapphire",
   "contracts": {
     "sapphire-testnet": {
       "EkaiControlPlane": "0x1647A17be7Ad7A01C6657aC05FA10349E7f32268",
