@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getApiBaseUrl } from '@/lib/api';
 
-const GATEWAY_REPO_URL = 'https://github.com/ekailabs/ekai-gateway';
+const GATEWAY_REPO_URL = 'https://github.com/ekailabs/ekai-gateway/tree/oasis-deployment';
 const HEALTH_TIMEOUT_MS = 4000;
 const HEALTH_POLL_MS = 30000;
 
