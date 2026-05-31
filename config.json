@@ -20,7 +20,7 @@
       "name": "Sapphire Mainnet",
       "rpcUrl": "https://sapphire.oasis.io",
       "explorer": "https://explorer.sapphire.oasis.io",
-      "gateway": null
+      "gateway": "https://p3001.m267.opf-mainnet-rofl-35.rofl.app"
     },
     "sapphire-testnet": {
       "chainId": "0x5aff",
