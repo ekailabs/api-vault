@@ -186,10 +186,21 @@ task("ekai-set-secret")
       return;
     }
 
-    const ciphertext = hre.ethers.toUtf8Bytes(secret);
+    // Encrypt the secret to the gateway's X25519 key so only the TEE can decrypt it.
+    // Produces the CBOR { format, body: { pk, nonce, data } } envelope the gateway expects.
+    const { X25519DeoxysII, CipherKind } = await import("@oasisprotocol/sapphire-paratime");
+    const { encode } = await import("cborg");
+    const roflPublicKey = hre.ethers.getBytes(pubkey);
+    const cipher = X25519DeoxysII.ephemeral(roflPublicKey);
+    const { ciphertext: encData, nonce } = cipher.encrypt(new TextEncoder().encode(secret));
+    const ciphertext = encode({
+      format: CipherKind.X25519DeoxysII,
+      body: { pk: cipher.publicKey, nonce, data: encData },
+    });
+
     const tx = await ekai.setSecret(providerId, ciphertext);
     await tx.wait();
-    console.log(`Secret set for ${args.provider.toUpperCase()} (${secret.length} chars) in tx: ${tx.hash}`);
+    console.log(`Encrypted secret set for ${args.provider.toUpperCase()} (${secret.length} chars, ${ciphertext.length}B ciphertext) in tx: ${tx.hash}`);
   });
 
 task("ekai-revoke-secret")
