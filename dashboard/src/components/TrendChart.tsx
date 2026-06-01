@@ -1,7 +1,7 @@
 'use client';
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { groupByDate, formatForChart, formatNumber } from '@/lib/utils';
+import { formatNumber } from '@/lib/utils';
 import { UsageDataResult } from '@/hooks/useUsageData';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import ErrorState from '@/components/ui/ErrorState';
@@ -14,15 +14,17 @@ interface TrendChartProps {
 }
 
 export default function TrendChart({ className = '', usageData }: TrendChartProps) {
-  const { records, loading, error, refetch } = usageData;
+  const { dailyUsage, loading, error, refetch } = usageData;
 
-  // Filter to last 30 days and group by day
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const recentRecords = records.filter(r => new Date(r.timestamp) >= thirtyDaysAgo);
-
-  const grouped = groupByDate(recentRecords, 'day');
-  const data = formatForChart(grouped);
+  const data = dailyUsage
+    .filter(day => new Date(day.date) >= thirtyDaysAgo)
+    .map(day => ({
+      ...day,
+      formattedDate: new Date(day.date).toLocaleDateString(),
+      formattedTime: new Date(day.date).toLocaleTimeString()
+    }));
 
   if (loading) {
     return <LoadingSkeleton className={className} />;

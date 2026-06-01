@@ -1,7 +1,7 @@
 // Demo data generator for dashboard preview
 // This generates realistic sample data client-side (no database pollution)
 
-import { UsageRecord } from './api';
+import { DailyUsageSummary, ModelUsageSummary, UsageRecord } from './api';
 
 const DEMO_MODELS = [
   { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', avgTokens: 8000 },
@@ -84,11 +84,62 @@ export function aggregateDemoData(records: UsageRecord[]) {
 
   const costByProvider: Record<string, number> = {};
   const costByModel: Record<string, number> = {};
+  const tokensByModel: Record<string, number> = {};
+  const modelUsageByModel: Record<string, ModelUsageSummary> = {};
+  const dailyUsageByDate: Record<string, DailyUsageSummary> = {};
 
   records.forEach(record => {
     costByProvider[record.provider] = (costByProvider[record.provider] || 0) + record.total_cost;
     costByModel[record.model] = (costByModel[record.model] || 0) + record.total_cost;
+
+    tokensByModel[record.model] = (tokensByModel[record.model] || 0) + record.total_tokens;
+    if (!modelUsageByModel[record.model]) {
+      modelUsageByModel[record.model] = {
+        model: record.model,
+        totalTokens: 0,
+        totalCost: 0,
+        totalRequests: 0
+      };
+    }
+    modelUsageByModel[record.model].totalTokens += record.total_tokens;
+    modelUsageByModel[record.model].totalCost += record.total_cost;
+    modelUsageByModel[record.model].totalRequests += 1;
+
+    const date = new Date(record.timestamp).toISOString().slice(0, 10);
+    if (!dailyUsageByDate[date]) {
+      dailyUsageByDate[date] = {
+        date,
+        cost: 0,
+        tokens: 0,
+        requests: 0,
+        inputTokens: 0,
+        cacheWriteTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 0
+      };
+    }
+    dailyUsageByDate[date].cost += record.total_cost;
+    dailyUsageByDate[date].tokens += record.total_tokens;
+    dailyUsageByDate[date].requests += 1;
+    dailyUsageByDate[date].inputTokens += record.input_tokens;
+    dailyUsageByDate[date].cacheWriteTokens += record.cache_write_input_tokens;
+    dailyUsageByDate[date].cacheReadTokens += record.cache_read_input_tokens;
+    dailyUsageByDate[date].outputTokens += record.output_tokens;
   });
+
+  const modelUsage = Object.values(modelUsageByModel)
+    .map(model => ({
+      ...model,
+      totalCost: Number(model.totalCost.toFixed(6))
+    }))
+    .sort((a, b) => b.totalTokens - a.totalTokens || a.model.localeCompare(b.model));
+
+  const dailyUsage = Object.values(dailyUsageByDate)
+    .map(day => ({
+      ...day,
+      cost: Number(day.cost.toFixed(6))
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return {
     records,
@@ -97,6 +148,10 @@ export function aggregateDemoData(records: UsageRecord[]) {
     totalRequests,
     costByProvider,
     costByModel,
+    tokensByModel,
+    modelUsage,
+    topModelsByTokens: modelUsage.slice(0, 5),
+    dailyUsage,
     loading: false,
     error: null,
     data: null,

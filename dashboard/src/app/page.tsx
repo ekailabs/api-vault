@@ -239,13 +239,11 @@ export default function Dashboard() {
 
             {/* Charts Section */}
             <div className="space-y-12">
+              {/* Model Breakdown */}
+              <ModelChart usageData={usageData} />
+
               {/* Token Usage Trend */}
               <TrendChart usageData={usageData} />
-
-              {/* Model Breakdown */}
-              <div className="grid grid-cols-1 gap-8">
-                <ModelChart usageData={usageData} />
-              </div>
             </div>
           </>
         )}

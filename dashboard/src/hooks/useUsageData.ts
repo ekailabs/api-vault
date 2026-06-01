@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiService, UsageResponse, UsageRecord } from '@/lib/api';
+import { apiService, DailyUsageSummary, ModelUsageSummary, UsageResponse, UsageRecord } from '@/lib/api';
 
 export interface UsageDataResult {
   data: UsageResponse | null;
@@ -12,6 +12,10 @@ export interface UsageDataResult {
   totalRequests: number;
   costByProvider: Record<string, number>;
   costByModel: Record<string, number>;
+  tokensByModel: Record<string, number>;
+  modelUsage: ModelUsageSummary[];
+  topModelsByTokens: ModelUsageSummary[];
+  dailyUsage: DailyUsageSummary[];
 }
 
 export const useUsageData = (fromDate?: Date, toDate?: Date): UsageDataResult => {
@@ -46,6 +50,10 @@ export const useUsageData = (fromDate?: Date, toDate?: Date): UsageDataResult =>
     totalTokens: data?.totalTokens || 0,
     totalRequests: data?.totalRequests || 0,
     costByProvider: data?.costByProvider || {},
-    costByModel: data?.costByModel || {}
+    costByModel: data?.costByModel || {},
+    tokensByModel: data?.tokensByModel || {},
+    modelUsage: data?.modelUsage || [],
+    topModelsByTokens: data?.topModelsByTokens || [],
+    dailyUsage: data?.dailyUsage || []
   };
 };

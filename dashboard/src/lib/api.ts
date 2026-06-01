@@ -32,12 +32,34 @@ export interface UsageRecord {
   created_at: string;
 }
 
+export interface ModelUsageSummary {
+  model: string;
+  totalTokens: number;
+  totalCost: number;
+  totalRequests: number;
+}
+
+export interface DailyUsageSummary {
+  date: string;
+  cost: number;
+  tokens: number;
+  requests: number;
+  inputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+  outputTokens: number;
+}
+
 export interface UsageResponse {
   totalRequests: number;
   totalCost: number;
   totalTokens: number;
   costByProvider: Record<string, number>;
   costByModel: Record<string, number>;
+  tokensByModel: Record<string, number>;
+  modelUsage: ModelUsageSummary[];
+  topModelsByTokens: ModelUsageSummary[];
+  dailyUsage: DailyUsageSummary[];
   records: UsageRecord[];
 }
 
