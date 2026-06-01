@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import TrendChart from '@/components/TrendChart';
-import ProviderChart from '@/components/ProviderChart';
 import ModelChart from '@/components/ModelChart';
 import StatsCards from '@/components/StatsCards';
 import SetupModal from '@/components/SetupModal';
@@ -243,10 +242,9 @@ export default function Dashboard() {
               {/* Token Usage Trend */}
               <TrendChart usageData={usageData} />
 
-              {/* Model & Provider Breakdown */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Model Breakdown */}
+              <div className="grid grid-cols-1 gap-8">
                 <ModelChart usageData={usageData} />
-                <ProviderChart usageData={usageData} />
               </div>
             </div>
           </>
