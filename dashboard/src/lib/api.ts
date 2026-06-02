@@ -197,7 +197,10 @@ export const apiService = {
     if (params?.limit) searchParams.append('limit', String(params.limit));
     if (params?.offset) searchParams.append('offset', String(params.offset));
 
-    const url = `${getBaseUrl()}/v1/models${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const path = `/api/models${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const url = typeof window === 'undefined'
+      ? `${getBaseUrl()}/v1/models${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+      : path;
     // No auth required - this is a public endpoint
     const response = await fetch(url);
     if (!response.ok) {

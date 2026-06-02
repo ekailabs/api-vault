@@ -142,6 +142,12 @@ export const getProviderName = (provider: string | undefined | null): string => 
     google: 'Google',
     xai: 'xAI',
     openrouter: 'OpenRouter',
+    deepseek: 'DeepSeek',
+    moonshotai: 'Moonshot AI',
+    'meta-llama': 'Meta Llama',
+    mistralai: 'Mistral AI',
+    qwen: 'Qwen',
+    cohere: 'Cohere',
     zai: 'Z.ai',
   };
 
