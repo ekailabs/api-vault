@@ -1,5 +1,17 @@
 import { UsageRecord } from './api';
 
+// Parse a usage date for display. Date-only strings ("YYYY-MM-DD", as returned
+// by the gateway's daily aggregates) are parsed as LOCAL midnight — otherwise
+// `new Date("2026-05-31")` is treated as UTC midnight and renders a day earlier
+// in negative-offset timezones, mislabeling every point on the trend chart.
+export const parseUsageDate = (value: string): Date => {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnly) {
+    return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+  }
+  return new Date(value);
+};
+
 // Date grouping utilities
 export const groupByDate = (records: UsageRecord[], groupBy: 'hour' | 'day' = 'day') => {
   const grouped: Record<string, {

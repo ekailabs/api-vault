@@ -1,7 +1,7 @@
 'use client';
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatNumber } from '@/lib/utils';
+import { formatNumber, parseUsageDate } from '@/lib/utils';
 import { UsageDataResult } from '@/hooks/useUsageData';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import ErrorState from '@/components/ui/ErrorState';
@@ -19,11 +19,11 @@ export default function TrendChart({ className = '', usageData }: TrendChartProp
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const data = dailyUsage
-    .filter(day => new Date(day.date) >= thirtyDaysAgo)
+    .filter(day => parseUsageDate(day.date) >= thirtyDaysAgo)
     .map(day => ({
       ...day,
-      formattedDate: new Date(day.date).toLocaleDateString(),
-      formattedTime: new Date(day.date).toLocaleTimeString()
+      formattedDate: parseUsageDate(day.date).toLocaleDateString(),
+      formattedTime: parseUsageDate(day.date).toLocaleTimeString()
     }));
 
   if (loading) {
@@ -60,7 +60,7 @@ export default function TrendChart({ className = '', usageData }: TrendChartProp
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
-              tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              tickFormatter={(value) => parseUsageDate(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               tick={{ fontSize: 10 }}
             />
             <YAxis
