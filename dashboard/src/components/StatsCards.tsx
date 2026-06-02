@@ -3,7 +3,7 @@
 import { UsageDataResult } from '@/hooks/useUsageData';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import ErrorState from '@/components/ui/ErrorState';
-import type { UsageRecord } from '@/lib/api';
+import type { ModelUsageSummary } from '@/lib/api';
 
 interface StatsCardsProps {
   usageData: UsageDataResult;
@@ -20,32 +20,16 @@ const formatCompactNumber = (num: number): string => {
   return num.toLocaleString();
 };
 
-// Get top model by token count
-const getTopModel = (records: UsageRecord[]) => {
-  const modelTokens: Record<string, number> = {};
-
-  records.forEach(record => {
-    if (!modelTokens[record.model]) {
-      modelTokens[record.model] = 0;
-    }
-    modelTokens[record.model] += record.total_tokens;
-  });
-
-  let topModel = '';
-  let maxTokens = 0;
-
-  Object.entries(modelTokens).forEach(([model, tokens]) => {
-    if (tokens > maxTokens) {
-      maxTokens = tokens;
-      topModel = model;
-    }
-  });
-
-  return { model: topModel, tokens: maxTokens };
+// Top model by all-time token volume. Use the server-side aggregate
+// (already sorted descending) so this matches the Tokens by Model chart —
+// the `records` array is only a recent subset, not all-time.
+const getTopModel = (topModelsByTokens: ModelUsageSummary[]) => {
+  const top = topModelsByTokens[0];
+  return { model: top?.model ?? '', tokens: top?.totalTokens ?? 0 };
 };
 
 export default function StatsCards({ usageData }: StatsCardsProps) {
-  const { records, totalTokens, totalRequests, loading, error, refetch } = usageData;
+  const { topModelsByTokens, totalTokens, totalRequests, loading, error, refetch } = usageData;
 
   if (loading) {
     return (
@@ -61,7 +45,7 @@ export default function StatsCards({ usageData }: StatsCardsProps) {
     return <ErrorState message={error} onRetry={refetch} />;
   }
 
-  const topModel = getTopModel(records);
+  const topModel = getTopModel(topModelsByTokens);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
