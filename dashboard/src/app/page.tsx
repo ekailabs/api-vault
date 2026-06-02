@@ -4,12 +4,14 @@ import { useState, useMemo, useEffect } from 'react';
 import TrendChart from '@/components/TrendChart';
 import ModelChart from '@/components/ModelChart';
 import StatsCards from '@/components/StatsCards';
+import UsersList from '@/components/UsersList';
 import SetupModal from '@/components/SetupModal';
 import PreferencesModal from '@/components/PreferencesModal';
 import ControlPlanePage from '@/components/control-plane/ControlPlanePage';
 import ModelCatalog from '@/components/ModelCatalog';
 import BackendStatusButton from '@/components/BackendStatusButton';
 import { useUsageData } from '@/hooks/useUsageData';
+import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { generateDemoData, aggregateDemoData } from '@/lib/demo-data';
@@ -46,6 +48,9 @@ export default function Dashboard() {
 
   // All time - no date filtering
   const realUsageData = useUsageData(undefined, undefined);
+
+  // Unique on-chain users (distinct tx senders), from the Nexus indexer
+  const users = useUsers();
 
   // Generate demo data once and memoize it
   const demoData = useMemo(() => {
@@ -235,12 +240,15 @@ export default function Dashboard() {
         {mainTab === 'dashboard' && (
           <>
             {/* Stats Cards */}
-            <StatsCards usageData={usageData} />
+            <StatsCards usageData={usageData} userCount={users} />
 
             {/* Charts Section */}
             <div className="space-y-12">
               {/* Model Breakdown */}
               <ModelChart usageData={usageData} />
+
+              {/* On-chain Users */}
+              <UsersList users={users} />
 
               {/* Token Usage Trend */}
               <TrendChart usageData={usageData} />

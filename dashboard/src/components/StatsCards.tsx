@@ -1,12 +1,14 @@
 'use client';
 
 import { UsageDataResult } from '@/hooks/useUsageData';
+import { UsersResult } from '@/hooks/useUsers';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import type { ModelUsageSummary } from '@/lib/api';
 
 interface StatsCardsProps {
   usageData: UsageDataResult;
+  userCount: UsersResult;
 }
 
 // Format number with K/M suffix
@@ -28,12 +30,13 @@ const getTopModel = (topModelsByTokens: ModelUsageSummary[]) => {
   return { model: top?.model ?? '', tokens: top?.totalTokens ?? 0 };
 };
 
-export default function StatsCards({ usageData }: StatsCardsProps) {
+export default function StatsCards({ usageData, userCount }: StatsCardsProps) {
   const { topModelsByTokens, totalTokens, totalRequests, loading, error, refetch } = usageData;
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <LoadingSkeleton variant="card" height={120} />
         <LoadingSkeleton variant="card" height={120} />
         <LoadingSkeleton variant="card" height={120} />
         <LoadingSkeleton variant="card" height={120} />
@@ -48,7 +51,7 @@ export default function StatsCards({ usageData }: StatsCardsProps) {
   const topModel = getTopModel(topModelsByTokens);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {/* Total Tokens */}
       <div className="card p-6 bg-white">
         <div className="flex items-start justify-between">
@@ -94,6 +97,24 @@ export default function StatsCards({ usageData }: StatsCardsProps) {
           <div className="text-4xl">⭐</div>
         </div>
         <p className="text-xs text-gray-500 mt-3">All time</p>
+      </div>
+
+      {/* Unique Users */}
+      <div className="card p-6 bg-white">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-gray-600 text-sm font-medium mb-1">Unique Users</p>
+            <p className="text-4xl font-bold text-gray-900">
+              {userCount.loading
+                ? '…'
+                : userCount.error
+                  ? '—'
+                  : (userCount.count ?? 0).toLocaleString()}
+            </p>
+          </div>
+          <div className="text-4xl">👥</div>
+        </div>
+        <p className="text-xs text-gray-500 mt-3">On-chain addresses</p>
       </div>
     </div>
   );
