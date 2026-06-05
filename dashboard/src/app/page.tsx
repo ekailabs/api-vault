@@ -20,6 +20,12 @@ import { apiService } from '@/lib/api';
 
 type MainTab = 'control-plane' | 'dashboard' | 'models';
 
+const MAIN_TABS: MainTab[] = ['control-plane', 'dashboard', 'models'];
+
+function parseTab(value: string | null): MainTab | null {
+  return value && (MAIN_TABS as string[]).includes(value) ? (value as MainTab) : null;
+}
+
 export default function Dashboard() {
   const [mainTab, setMainTab] = useState<MainTab>('control-plane');
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -28,6 +34,27 @@ export default function Dashboard() {
   const [userModels, setUserModels] = useState<string[]>([]);
   const auth = useAuth();
   const wallet = useWallet();
+
+  // Sync the active tab with the URL (?tab=...) so each tab is linkable and
+  // bookmarkable. Initialized from the URL on mount, kept in sync on
+  // back/forward navigation. Uses the History API directly to avoid the
+  // useSearchParams() Suspense-boundary requirement.
+  useEffect(() => {
+    const applyFromUrl = () => {
+      const tab = parseTab(new URLSearchParams(window.location.search).get('tab'));
+      if (tab) setMainTab(tab);
+    };
+    applyFromUrl();
+    window.addEventListener('popstate', applyFromUrl);
+    return () => window.removeEventListener('popstate', applyFromUrl);
+  }, []);
+
+  const selectTab = (tab: MainTab) => {
+    setMainTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    window.history.pushState({}, '', url);
+  };
 
   // Fetch user preferences when authenticated
   useEffect(() => {
@@ -75,7 +102,7 @@ export default function Dashboard() {
               {/* Main Tabs */}
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={() => setMainTab('control-plane')}
+                  onClick={() => selectTab('control-plane')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                     mainTab === 'control-plane'
                       ? 'bg-white text-gray-900 shadow-sm'
@@ -85,7 +112,7 @@ export default function Dashboard() {
                   Control Plane
                 </button>
                 <button
-                  onClick={() => setMainTab('dashboard')}
+                  onClick={() => selectTab('dashboard')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                     mainTab === 'dashboard'
                       ? 'bg-white text-gray-900 shadow-sm'
@@ -95,7 +122,7 @@ export default function Dashboard() {
                   Dashboard
                 </button>
                 <button
-                  onClick={() => setMainTab('models')}
+                  onClick={() => selectTab('models')}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                     mainTab === 'models'
                       ? 'bg-white text-gray-900 shadow-sm'
