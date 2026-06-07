@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { UsersResult } from '@/hooks/useUsers';
 import { shortenAddress, getExplorerUrl } from '@/lib/contract';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
@@ -31,6 +32,7 @@ const formatRelative = (iso: string | null): string => {
 
 export default function UsersList({ className = '', users }: UsersListProps) {
   const { users: list, loading, error, refetch } = users;
+  const [expanded, setExpanded] = useState(false);
 
   if (loading) {
     return <LoadingSkeleton className={className} variant="chart" height={220} />;
@@ -51,7 +53,8 @@ export default function UsersList({ className = '', users }: UsersListProps) {
     );
   }
 
-  const visible = list.slice(0, TOP_COUNT);
+  const visible = expanded ? list : list.slice(0, TOP_COUNT);
+  const hiddenCount = list.length - TOP_COUNT;
 
   return (
     <div className={`card p-8 ${className}`}>
@@ -88,6 +91,16 @@ export default function UsersList({ className = '', users }: UsersListProps) {
           </a>
         ))}
       </div>
+
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          className="mt-5 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          onClick={() => setExpanded(current => !current)}
+        >
+          {expanded ? 'Show top 5' : `Show all users (${list.length})`}
+        </button>
+      )}
 
       <div className="mt-6 pt-6 border-t border-gray-200">
         <div className="flex justify-between items-center gap-4">
